@@ -3,25 +3,76 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #F7F7F7;
+  --foreground: #4B4B4B;
+  --primary: #58CC02;
+  --primary-dark: #46A302;
+  --knowledge: #CE82FF;
+  --error: #FF4B4B;
+  --warning: #FF9600;
+  --card: #FFFFFF;
+  --muted: #AFAFAF;
+  --border: #E5E5E5;
+  --desktop-bg: #1a1a1a;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #1a1a1a;
+    --foreground: #e5e5e5;
+    --card: #2a2a2a;
+    --border: #3a3a3a;
+    --muted: #888;
+  }
+}
+
+html.dark {
+  --background: #1a1a1a;
+  --foreground: #e5e5e5;
+  --card: #2a2a2a;
+  --border: #3a3a3a;
+  --muted: #888;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Mobile-first: prevent unwanted zoom on inputs */
+@supports (padding: max(0px)) {
+  html {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
 }
 
 body {
   color: var(--foreground);
   background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-nunito), system-ui, -apple-system, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  min-height: 100dvh;
+  padding-bottom: 60px; /* space for fixed bottom nav */
+}
+
+/* Desktop: constrain content, center, dark outer background */
+@media (min-width: 481px) {
+  body {
+    background: var(--desktop-bg);
+  }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  /* Duolingo-style button press */
+  .btn-press:active {
+    transform: translateY(2px);
   }
 }

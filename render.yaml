@@ -1,0 +1,30 @@
+# Render Blueprint: AILingo 生产环境
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: ailingo
+    runtime: node
+    region: singapore
+
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: NEXT_PUBLIC_APP_URL
+        generateValue: "https://ailingo.onrender.com"
+      - key: GITHUB_TOKEN
+        sync: false
+      - key: CRON_SECRET
+        generateValue: "change-me-in-dashboard"
+      - key: ADMIN_EMAILS
+        sync: false

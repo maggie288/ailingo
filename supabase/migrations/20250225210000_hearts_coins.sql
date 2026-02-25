@@ -1,0 +1,6 @@
+-- Add hearts (lives) and coins to streaks
+ALTER TABLE public.streaks
+  ADD COLUMN IF NOT EXISTS hearts INT NOT NULL DEFAULT 5,
+  ADD COLUMN IF NOT EXISTS hearts_max INT NOT NULL DEFAULT 5,
+  ADD COLUMN IF NOT EXISTS last_hearts_at TIMESTAMPTZ DEFAULT now(),
+  ADD COLUMN IF NOT EXISTS coins INT NOT NULL DEFAULT 0;

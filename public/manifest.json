@@ -1,0 +1,11 @@
+{
+  "name": "AILingo - AI大模型学习",
+  "short_name": "AILingo",
+  "description": "从入门到精通的AI大模型学习平台",
+  "start_url": "/learn",
+  "display": "standalone",
+  "background_color": "#F7F7F7",
+  "theme_color": "#58CC02",
+  "orientation": "portrait",
+  "icons": []
+}
