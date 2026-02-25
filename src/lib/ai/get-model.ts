@@ -1,10 +1,11 @@
 /**
  * 统一 AI 模型选择：优先 MiniMax（MINIMAX_API_KEY），否则 OpenAI（OPENAI_API_KEY）。
  * 课程生成等重任务用主模型，概念提取/题目生成为轻量模型。
+ * 国内版 minimaxi.com：设 MINIMAX_BASE_URL，可选 MINIMAX_GROUP_ID；若仍 invalid api key 可试 MINIMAX_USE_OPENAI=1 走 OpenAI 兼容地址。
  */
 
 import { openai } from "@ai-sdk/openai";
-import { createMinimax } from "vercel-minimax-ai-provider";
+import { createMinimax, createMinimaxOpenAI } from "vercel-minimax-ai-provider";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 
 const MINIMAX_MAIN = "MiniMax-M2.5" as const;
@@ -13,7 +14,27 @@ const MINIMAX_LIGHT = "MiniMax-M2.1-lightning" as const;
 function getMinimaxModel(modelId: string): LanguageModelV3 {
   const apiKey = process.env.MINIMAX_API_KEY;
   if (!apiKey) throw new Error("MINIMAX_API_KEY is not set");
-  const minimax = createMinimax({ apiKey });
+  const baseURL = process.env.MINIMAX_BASE_URL?.trim() || undefined;
+  const groupId = process.env.MINIMAX_GROUP_ID?.trim() || undefined;
+  const useOpenAICompat = process.env.MINIMAX_USE_OPENAI === "1" || process.env.MINIMAX_USE_OPENAI === "true";
+
+  if (useOpenAICompat && baseURL) {
+    // 国内版部分环境只开放 OpenAI 兼容接口
+    const openaiProvider = createMinimaxOpenAI({
+      apiKey,
+      baseURL,
+      headers: groupId ? { "Group-Id": groupId } : undefined,
+    });
+    return openaiProvider(modelId);
+  }
+
+  const headers: Record<string, string> = {};
+  if (groupId) headers["Group-Id"] = groupId;
+  const minimax = createMinimax({
+    apiKey,
+    ...(baseURL ? { baseURL } : {}),
+    ...(Object.keys(headers).length ? { headers } : {}),
+  });
   return minimax(modelId);
 }
 

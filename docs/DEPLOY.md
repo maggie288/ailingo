@@ -91,6 +91,7 @@ git push -u origin main
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase **service_role** key（仅服务端，勿泄露） | 建议 |
 | `NEXT_PUBLIC_APP_URL` | 生产站完整 URL，如 `https://ailingo-xxx.vercel.app`（部署后可改） | ✅ |
 | `MINIMAX_API_KEY` | MiniMax 开放平台 API Key（课程/概念/题目生成，优先使用 M2.5） | 与 OpenAI 二选一 |
+| `MINIMAX_BASE_URL` | Key 来自**国内版 minimaxi.com** 时必填：`https://api.minimaxi.com/anthropic/v1` | 国内版 Key 必填 |
 | `OPENAI_API_KEY` | OpenAI API Key（未配 MiniMax 时用于文本生成；上传资料中的图片解析仅支持 OpenAI） | 与 MiniMax 二选一或同配 |
 | `ADMIN_EMAILS` | 管理员邮箱，多个用英文逗号，如 `a@b.com,c@d.com` | 需 /admin 时 |
 | `GITHUB_TOKEN` | GitHub Personal Access Token（可选，cron 用） | 可选 |
@@ -144,16 +145,78 @@ git push -u origin main
 
 0→1 路径的课时由 **AI 按知识节点批量生成**。
 
-1. **前提**：已执行迁移（含知识节点种子），且配置好 `OPENAI_API_KEY`。
-2. **接口**：`POST` 或 `GET` **`/api/cron/generate-path-lessons`**
-   - 若配置了 `CRON_SECRET`，请求头需带：`Authorization: Bearer <CRON_SECRET>`。
-   - **POST** Body 可选：`{ "publish": true }` 生成后直接发布；`{ "limit": 5 }` 仅生成前 5 个节点（便于分批或测试）。
-   - **GET** 可选 query：`?publish=1`、`?limit=5`。
-3. **行为**：按 `knowledge_nodes` 顺序，为每个节点调用 OpenAI 生成一节完整微课（概念卡、选择题、代码填空等），写入 `generated_lessons`，默认 `status=draft`；传 `publish=true` 则 `status=published`。
-4. **触发示例**：  
-   `curl -X POST "https://你的域名/api/cron/generate-path-lessons" -H "Authorization: Bearer 你的CRON_SECRET" -H "Content-Type: application/json" -d '{"publish":true}'`  
-   可先传 `limit=2` 测试，再到管理后台审核发布，再全量生成。
-5. **注意**：全量约 10 节，单节约 30–60 秒；Vercel 免费函数可能 60s 超时，可分批传 `limit=3` 多次调用，或从 Render 等长时环境调用。
+### 前提
+
+- 已在 Supabase 执行完整迁移（含知识节点种子），见上文「SQL Editor 中按顺序执行迁移」。
+- 已在 Vercel 配置 **MINIMAX_API_KEY** 或 **OPENAI_API_KEY**，以及 **CRON_SECRET**（用于保护该接口）。
+
+### 域名和密钥在哪里找？
+
+| 要用的东西 | 在哪里找 |
+|------------|----------|
+| **域名** | Vercel → 你的项目 → 顶部 **Domains**，或 **Settings → Domains**。一般会有一条 `xxx.vercel.app`，例如 `ailingo-abc123.vercel.app`，完整地址即 `https://ailingo-abc123.vercel.app`（务必带 `https://`）。 |
+| **CRON_SECRET** | 就是你之前在 Vercel **Settings → Environment Variables** 里为 `CRON_SECRET` 填的那串随机字符串。若还没配，去那里新增一条，Value 随便填一长串（如 `my-secret-123xyz`），保存后 Redeploy，再在下面请求里用这串。 |
+
+### 具体操作步骤
+
+1. **先试 2 节（推荐）**  
+   在电脑终端执行（把下面两处替换成你的真实值）：
+   ```bash
+   curl -X POST "https://你的域名/api/cron/generate-path-lessons" \
+     -H "Authorization: Bearer 你的CRON_SECRET" \
+     -H "Content-Type: application/json" \
+     -d '{"limit":2}'
+   ```
+   - **你的域名**：从 Vercel 的 Domains 里复制，例如 `https://ailingo-xxx.vercel.app`，不要末尾斜杠。
+   - **你的CRON_SECRET**：从 Vercel 的 Environment Variables 里 `CRON_SECRET` 的值复制。  
+   若返回里有 `created: 2` 且无报错，说明成功。
+
+2. **到管理后台审核**  
+   打开 `https://你的域名/admin`，用 `ADMIN_EMAILS` 里邮箱登录，在「课时」里能看到刚生成的 2 节（status 为 draft）。可点进去看内容，需要的话改为「发布」。
+
+3. **再全量生成（可选）**  
+   确认没问题后，再调一次接口生成全部节点（约 10 节）。因耗时较长，可分批调用，例如每次生成 3 节：
+   ```bash
+   curl -X POST "https://你的域名/api/cron/generate-path-lessons" \
+     -H "Authorization: Bearer 你的CRON_SECRET" \
+     -H "Content-Type: application/json" \
+     -d '{"limit":3,"publish":true}'
+   ```
+   多执行几次（或把 `limit` 改为 10）直到全部生成；传 `"publish":true` 会直接发布，不传则保持 draft 由后台发布。
+
+### 接口说明（供查阅）
+
+- **接口**：`POST` 或 `GET` **`/api/cron/generate-path-lessons`**
+- 若配置了 `CRON_SECRET`，请求头必须带：`Authorization: Bearer <CRON_SECRET>`。
+- **POST** Body 可选：`{ "publish": true }` 生成后直接发布；`{ "limit": 5 }` 仅生成前 5 个节点。
+- **GET** 可选 query：`?publish=1`、`?limit=5`。
+- **行为**：按 `knowledge_nodes` 顺序，为每个节点调用 AI 生成一节完整微课，写入 `generated_lessons`。
+- **注意**：全量约 10 节，单节约 30–60 秒；Vercel 免费函数可能 60s 超时，建议用 `limit=2` 或 `limit=3` 分批调用。
+
+### 若返回 "invalid api key"
+
+说明 CRON 已通过，但 **MiniMax 接口认为 Key 无效**。按下面顺序排查（每改一次都要 **Redeploy** 再试）：
+
+1. **确认已配国内版 base**  
+   Key 来自 **minimaxi.com** 时，在 Vercel 必须增加：  
+   - **Name**：`MINIMAX_BASE_URL`  
+   - **Value**：先试 `https://api.minimaxi.com/anthropic/v1`  
+   保存 → **Deployments** → 最新部署 **Redeploy** → 再调一次接口。
+
+2. **仍报错时：试 OpenAI 兼容地址**  
+   国内版有时只开放 OpenAI 兼容接口。在 Vercel 再加两条：  
+   - `MINIMAX_BASE_URL` 改为：`https://api.minimaxi.com/v1`  
+   - 新增 `MINIMAX_USE_OPENAI`，Value 填：`1`  
+   保存 → **Redeploy** → 再试。
+
+3. **国内版如需 group_id**  
+   在 [minimaxi 账户管理 - 基本信息](https://platform.minimaxi.com/user-center/basic-information) 里复制 **group_id**，在 Vercel 新增：  
+   - **Name**：`MINIMAX_GROUP_ID`  
+   - **Value**：粘贴 group_id  
+   保存 → **Redeploy** → 再试。
+
+4. **确认 Redeploy 生效**  
+   改环境变量后必须 **Redeploy**，否则线上还是旧配置。在 Deployments 里看最新一次是「Building」→「Ready」后再用 curl 测。
 
 ---
 
