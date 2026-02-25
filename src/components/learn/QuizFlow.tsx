@@ -55,7 +55,6 @@ export function QuizFlow({
   const isCorrect = (): boolean => {
     if (!current) return false;
     const ca = current.correct_answer;
-    const opts = current.options ?? [];
     if (current.type === "multiple_choice" || current.type === "boolean") {
       return typeof ca === "string" && ca === selectedId;
     }

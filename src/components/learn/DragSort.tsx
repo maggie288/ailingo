@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Reorder } from "framer-motion";
 import { GripVertical } from "lucide-react";
 import type { QuestionOption } from "@/types/database";

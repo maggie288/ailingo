@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       .map((s) => s.replace(/^[\d.)\s\-]+/, "").trim())
       .filter((s) => s.length > 0 && s.length < 80);
 
-    return NextResponse.json({ concepts: [...new Set(concepts)] });
+    return NextResponse.json({ concepts: Array.from(new Set(concepts)) });
   } catch (err) {
     console.error("POST /api/extract/concepts:", err);
     return NextResponse.json(

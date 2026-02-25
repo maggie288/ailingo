@@ -17,7 +17,6 @@ export async function updateStreakOnLessonComplete(
     .eq("user_id", userId)
     .single();
 
-  const now = new Date().toISOString();
   const hasDoubleXp = row?.double_xp_until && new Date(row.double_xp_until).getTime() > Date.now();
   const xpToAdd = hasDoubleXp ? XP_PER_LESSON * 2 : XP_PER_LESSON;
 
