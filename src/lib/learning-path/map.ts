@@ -22,6 +22,15 @@ const BAND_MID: Record<DifficultyLabel, number> = {
 };
 
 /**
+ * 将知识节点的 difficulty_level (1-10) 转为 API 用的 DifficultyLabel
+ */
+export function difficultyLevelToLabel(level: number): DifficultyLabel {
+  if (level >= 7) return "advanced";
+  if (level >= 4) return "intermediate";
+  return "beginner";
+}
+
+/**
  * 将课程难度标签映射到 1-10 的区间
  */
 export function getDifficultyBand(

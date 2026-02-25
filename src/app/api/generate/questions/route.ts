@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { getModelForExtract, hasAnyAiKey } from "@/lib/ai/get-model";
 import { z } from "zod";
 
 const questionOptionSchema = z.object({
@@ -20,10 +20,9 @@ const questionsOutputSchema = z.object({
 });
 
 export async function POST(request: Request) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
+  if (!hasAnyAiKey()) {
     return NextResponse.json(
-      { error: "OPENAI_API_KEY is not set" },
+      { error: "MINIMAX_API_KEY or OPENAI_API_KEY is required" },
       { status: 503 }
     );
   }
@@ -46,7 +45,7 @@ export async function POST(request: Request) {
       : `根据主题「${topic}」生成 ${count} 道中文选择题（单选），用于 AI/大模型学习场景。每道题有 2-4 个选项，correct_answer 为正确选项的 id，options 中每项包含 id 和 text。输出 JSON：{ "questions": [ { "question_text": "题目", "options": [{ "id": "a", "text": "选项A" }], "correct_answer": "a", "explanation": "解析" } ] }。只输出 JSON，不要 markdown。`;
 
     const result = await generateText({
-      model: openai("gpt-4o-mini"),
+      model: getModelForExtract(),
       prompt,
       maxRetries: 1,
     });

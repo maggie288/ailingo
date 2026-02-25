@@ -1,6 +1,6 @@
 import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
 import { Output } from "ai";
+import { getModelForLesson } from "./get-model";
 import { generatedLessonOutputSchema, type GeneratedLessonOutput } from "./course-schema";
 
 const SYSTEM_PROMPT = `你是一个AI大模型学习平台的课程设计专家。你的任务是将技术内容转化为Duolingo风格的游戏化微课。
@@ -30,13 +30,8 @@ export async function generateLessonFromContent(
         ? `根据以下从 URL 获取的内容，生成一节游戏化微课。\n\nURL：${input.url ?? ""}\n\n内容：\n${input.abstractOrContent}`
         : `根据以下技术内容，生成一节游戏化微课。\n\n${input.abstractOrContent}`;
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is not set");
-  }
-
   const result = await generateText({
-    model: openai("gpt-4o"),
+    model: getModelForLesson(),
     system: SYSTEM_PROMPT,
     prompt,
     output: Output.object({

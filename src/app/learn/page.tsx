@@ -1,6 +1,7 @@
 import { TopBar } from "@/components/layout/TopBar";
 import { TopBarStats } from "@/components/layout/TopBarStats";
 import { CourseList } from "@/components/learn/CourseList";
+import { GuestLearnTip } from "@/components/learn/GuestLearnTip";
 import { StreakReminder } from "@/components/gamification/StreakReminder";
 
 export default function LearnPage() {
@@ -8,6 +9,7 @@ export default function LearnPage() {
     <>
       <TopBar title="学习" right={<TopBarStats />} />
       <main className="p-4 pb-8">
+        <GuestLearnTip />
         <div className="mb-4">
           <StreakReminder />
         </div>

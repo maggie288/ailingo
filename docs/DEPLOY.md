@@ -32,11 +32,24 @@ git push -u origin main
 3. **Authentication → URL Configuration**：
    - Site URL：填生产站地址（如 `https://ailingo.vercel.app` 或 `https://your-app.onrender.com`）
    - Redirect URLs：添加 `https://你的域名/auth/callback`
-4. **SQL Editor** 中按顺序执行 `supabase/migrations/` 下所有 `.sql`，或使用 Supabase CLI：
-   ```bash
-   npx supabase link --project-ref 你的项目ref
-   npx supabase db push
-   ```
+4. **SQL Editor 中按顺序执行迁移**（二选一）：
+   - **方式 A（推荐）**：在 Supabase Dashboard → **SQL Editor** → New query，打开项目里的 **`supabase/migrations/run-all-in-order.sql`**，复制全部内容粘贴到编辑器，点击 **Run**，一次性执行全部迁移。
+   - **方式 B**：在 **SQL Editor** 里按下面顺序**逐个**执行每个 `.sql` 文件内容（复制粘贴后 Run）：
+     1. `20250225000001_initial_schema.sql`
+     2. `20250225100000_phase3_knowledge_and_generated.sql`
+     3. `20250225110000_seed_learning_path.sql`
+     4. `20250225200000_daily_tasks.sql`
+     5. `20250225210000_hearts_coins.sql`
+     6. `20250225220000_materials.sql`
+     7. `20250225230000_generated_lessons_source_topic.sql`
+     8. `20250225240000_streaks_double_xp.sql`
+     9. `20250225250000_knowledge_graph_full.sql`
+   - **方式 C（CLI）**：若已安装 Supabase CLI，可在项目根目录执行：
+     ```bash
+     npx supabase link --project-ref 你的项目ref
+     npx supabase db push
+     ```
+   **注意**：若用方式 B 且执行第 4 个文件时报错 “policy … already exists”，说明 `initial_schema` 里已存在同名的 streak 策略，可跳过该文件中关于 `streaks` 的两条 `CREATE POLICY`，只执行创建 `daily_tasks` 表和 `user_achievements` 的 INSERT 策略即可。
 
 ### 3. 环境变量清单
 
@@ -45,7 +58,8 @@ git push -u origin main
 | `NEXT_PUBLIC_SUPABASE_URL` | ✅ | Supabase 项目 URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | ✅ | Supabase 匿名密钥 |
 | `SUPABASE_SERVICE_ROLE_KEY` | 管理后台需 | 服务端密钥，用于 admin API |
-| `OPENAI_API_KEY` | AI 功能需 | OpenAI API Key |
+| `MINIMAX_API_KEY` | 与 OpenAI 二选一 | MiniMax 开放平台 API Key（课程生成用 M2.5） |
+| `OPENAI_API_KEY` | 与 MiniMax 二选一 | OpenAI API Key（图片解析仅支持 OpenAI） |
 | `NEXT_PUBLIC_APP_URL` | ✅ 生产 | 生产环境完整 URL（用于 Auth 回调等） |
 | `GITHUB_TOKEN` | 可选 | 每日 cron 拉 GitHub 仓库用 |
 | `CRON_SECRET` | 可选 | 保护 `/api/cron/daily-course-generation` |
@@ -57,12 +71,38 @@ git push -u origin main
 
 1. 登录 [Vercel](https://vercel.com)，**Add New → Project**，从 GitHub 导入 `ailingo` 仓库。
 2. **Framework Preset** 选 Next.js，**Root Directory** 保持默认。
-3. **Environment Variables** 中把上表变量全部添加（Production、Preview 可按需区分）。
-4. 重要：`NEXT_PUBLIC_APP_URL` 填 Vercel 分配域名，如 `https://ailingo-xxx.vercel.app`；若用自定义域名，改为该域名。
-5. 点击 **Deploy**。构建命令为 `npm run build`，无需改 `vercel.json` 已包含长时 API 配置。
-6. 部署完成后，回到 Supabase **Authentication → URL Configuration**，将 **Site URL** 和 **Redirect URLs** 改为该 Vercel 域名（及自定义域名）。
+3. **Environment Variables** 中按下面「环境变量怎么设置」添加变量。
+4. 重要：`NEXT_PUBLIC_APP_URL` 先可留空或填 `https://ailingo.vercel.app`，部署成功后在 Vercel 项目页复制**实际分配的生产域名**（如 `https://ailingo-xxx.vercel.app`），再回 Vercel **Settings → Environment Variables** 把 `NEXT_PUBLIC_APP_URL` 改为该域名并 **Redeploy**。
+5. 点击 **Deploy**。构建命令为 `npm run build`。
+6. 部署完成后，到 Supabase **Authentication → URL Configuration**，将 **Site URL** 和 **Redirect URLs** 改为该 Vercel 域名。
 
 **自定义域名**：Vercel 项目 → Settings → Domains → 添加域名并按提示解析。
+
+### Vercel 环境变量怎么设置
+
+1. 打开 [Vercel Dashboard](https://vercel.com/dashboard) → 选中你的 **ailingo** 项目。
+2. 顶部点 **Settings** → 左侧 **Environment Variables**。
+3. 在 **Key** 和 **Value** 里逐条添加（**Environment** 建议先勾选 **Production**，需要时再勾选 Preview/Development）：
+
+| Key | Value | 必填 |
+|-----|--------|------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase 项目 URL，如 `https://xxxx.supabase.co` | ✅ |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase **anon public** key（Settings → API） | ✅ |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase **service_role** key（仅服务端，勿泄露） | 建议 |
+| `NEXT_PUBLIC_APP_URL` | 生产站完整 URL，如 `https://ailingo-xxx.vercel.app`（部署后可改） | ✅ |
+| `MINIMAX_API_KEY` | MiniMax 开放平台 API Key（课程/概念/题目生成，优先使用 M2.5） | 与 OpenAI 二选一 |
+| `OPENAI_API_KEY` | OpenAI API Key（未配 MiniMax 时用于文本生成；上传资料中的图片解析仅支持 OpenAI） | 与 MiniMax 二选一或同配 |
+| `ADMIN_EMAILS` | 管理员邮箱，多个用英文逗号，如 `a@b.com,c@d.com` | 需 /admin 时 |
+| `GITHUB_TOKEN` | GitHub Personal Access Token（可选，cron 用） | 可选 |
+| `CRON_SECRET` | 任意随机字符串（保护 cron 接口） | 可选 |
+
+4. 每添加一条点 **Save**；全部填完后可到 **Deployments** 选最新一次部署 → **Redeploy**，或下次 push 代码会自动用新变量构建。
+
+### 若 Vercel 构建失败
+
+- **先看构建的是哪次提交**：日志开头有 `Commit: xxxxx`。若为旧提交（如 `b102c2d`），请确认本地已执行 `git push origin main` 并包含最新修复（未使用变量、Set 迭代等），再在 Vercel 的 **Deployments** 里 **Redeploy** 或重新 push 触发部署。
+- **找到真正的报错**：日志里 `npm install` 后的 deprecation 警告（如 rimraf、eslint）一般不会导致失败。请往下滚动到出现 **Failed to compile**、**Error:** 或 **Command "npm run build" exited with 1** 的那几行，把那段完整贴出以便排查。
+- **常见原因**：缺少环境变量（构建或运行时报错）、Node 版本（项目已要求 `>=18`，一般无需改）、ESLint/Type 报错（已在本仓库修复，确保部署的是最新 main）。
 
 ---
 
@@ -100,16 +140,33 @@ git push -u origin main
 
 ---
 
-## 六、Cron（可选）
+## 六、生成完整 0→1 AI 课程
 
-若使用 Vercel Cron 触发每日课程生成：
+0→1 路径的课时由 **AI 按知识节点批量生成**。
 
-1. 在 `vercel.json` 中可增加 `crons`（参考 Vercel 文档）。
-2. 请求时带上 `Authorization: Bearer ${CRON_SECRET}` 或 Query 中带 `secret`，并在 `/api/cron/daily-course-generation` 中校验，避免被随意调用。
+1. **前提**：已执行迁移（含知识节点种子），且配置好 `OPENAI_API_KEY`。
+2. **接口**：`POST` 或 `GET` **`/api/cron/generate-path-lessons`**
+   - 若配置了 `CRON_SECRET`，请求头需带：`Authorization: Bearer <CRON_SECRET>`。
+   - **POST** Body 可选：`{ "publish": true }` 生成后直接发布；`{ "limit": 5 }` 仅生成前 5 个节点（便于分批或测试）。
+   - **GET** 可选 query：`?publish=1`、`?limit=5`。
+3. **行为**：按 `knowledge_nodes` 顺序，为每个节点调用 OpenAI 生成一节完整微课（概念卡、选择题、代码填空等），写入 `generated_lessons`，默认 `status=draft`；传 `publish=true` 则 `status=published`。
+4. **触发示例**：  
+   `curl -X POST "https://你的域名/api/cron/generate-path-lessons" -H "Authorization: Bearer 你的CRON_SECRET" -H "Content-Type: application/json" -d '{"publish":true}'`  
+   可先传 `limit=2` 测试，再到管理后台审核发布，再全量生成。
+5. **注意**：全量约 10 节，单节约 30–60 秒；Vercel 免费函数可能 60s 超时，可分批传 `limit=3` 多次调用，或从 Render 等长时环境调用。
 
 ---
 
-## 七、故障排查
+## 七、Cron（可选）
+
+若使用 Vercel Cron 触发每日课程生成（ArXiv/GitHub）：
+
+1. 在 `vercel.json` 中可增加 `crons`（参考 Vercel 文档）。
+2. 请求时带上 `Authorization: Bearer ${CRON_SECRET}`，并在 `/api/cron/daily-course-generation` 中校验。
+
+---
+
+## 八、故障排查
 
 - **构建失败**：查看 Vercel/Render 构建日志；常见为 Node 版本（建议 18+）、`pdf-parse` 等原生依赖在无头环境下的问题，必要时在 `package.json` 指定 `"engines": { "node": ">=18" }`。
 - **登录回调 404**：确认 Supabase 中 Redirect URL 与 `NEXT_PUBLIC_APP_URL/auth/callback` 完全一致（含协议与尾斜杠策略）。

@@ -19,6 +19,7 @@ async function extractPdfText(file: File): Promise<string | null> {
 
 const IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"];
 
+/** 图片内容提取目前仅支持 OpenAI 视觉模型；仅配置 MiniMax 时上传图片将跳过解析 */
 async function extractImageText(file: File): Promise<string | null> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return null;

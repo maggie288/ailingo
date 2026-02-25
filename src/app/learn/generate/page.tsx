@@ -73,7 +73,7 @@ export default function GenerateCoursePage() {
         {!lesson ? (
           <>
             <p className="text-muted text-sm mb-4">
-              从主题、ArXiv 论文或网页 URL 生成一节游戏化微课（需配置 OPENAI_API_KEY）。
+              从主题、ArXiv 论文或网页 URL 生成一节游戏化微课（需配置 MINIMAX_API_KEY 或 OPENAI_API_KEY）。
             </p>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div className="flex gap-2 flex-wrap">

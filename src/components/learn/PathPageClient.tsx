@@ -54,13 +54,38 @@ export function PathPageClient() {
   }
 
   const { path, unassigned_lessons } = data;
+  const hasAnyLessons = path.some((s) => s.lessons.length > 0) || unassigned_lessons.length > 0;
+
+  if (path.length === 0) {
+    return (
+      <div className="space-y-4">
+        <p className="text-muted text-sm">
+          0→1 路径由知识节点与 AI 生成课时组成。当前暂无路径数据。
+        </p>
+        <div className="rounded-card border border-dashed border-border bg-card p-4 text-sm text-muted">
+          <p className="font-medium text-foreground mb-2">如何生成完整 0→1 课程？</p>
+          <ol className="list-decimal list-inside space-y-1">
+            <li>确认已在 Supabase 执行完整迁移（含知识节点种子）：<code className="text-foreground">run-all-in-order.sql</code></li>
+            <li>调用接口为每个知识节点 AI 生成课时：<code className="text-foreground">POST /api/cron/generate-path-lessons</code>（需 CRON_SECRET + MINIMAX_API_KEY 或 OPENAI_API_KEY），详见 <code className="text-foreground">docs/DEPLOY.md</code> 第六节</li>
+            <li>生成后为 draft，可在管理后台审核并发布；或请求时传 <code className="text-foreground">{`{"publish": true}`}</code> 直接发布</li>
+          </ol>
+          <a href="/learn" className="inline-block mt-3 text-primary font-medium">返回学习</a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       <p className="text-muted text-sm">
         按难度排列的知识节点与 AI 生成课时，从零到一系统学习。
       </p>
-
+      {!hasAnyLessons && (
+        <div className="rounded-card border border-primary/30 bg-primary/5 p-3 text-sm text-muted">
+          当前暂无已发布课时。请调用 <code className="text-foreground">POST /api/cron/generate-path-lessons</code> 为 0→1 路径批量 AI 生成课时（见 docs/DEPLOY.md），或在「学习」页用「从论文/URL AI 生成」/「上传资料」生成后由管理员发布。
+          <a href="/learn" className="block mt-2 text-primary font-medium">返回学习 →</a>
+        </div>
+      )}
       <div className="space-y-6">
         {path.map((slot, idx) => (
           <section

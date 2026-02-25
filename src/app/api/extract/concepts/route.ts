@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
 import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { getModelForExtract, hasAnyAiKey } from "@/lib/ai/get-model";
 
 export async function POST(request: Request) {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
+  if (!hasAnyAiKey()) {
     return NextResponse.json(
-      { error: "OPENAI_API_KEY is not set" },
+      { error: "MINIMAX_API_KEY or OPENAI_API_KEY is required" },
       { status: 503 }
     );
   }
@@ -22,7 +21,7 @@ export async function POST(request: Request) {
     }
 
     const result = await generateText({
-      model: openai("gpt-4o-mini"),
+      model: getModelForExtract(),
       prompt: `从以下技术/学习类文本中提取知识点（概念）名称列表。要求：
 1. 只输出概念名称，每行一个，不要编号、不要解释。
 2. 概念应为名词或名词短语，如「注意力机制」「Transformer」「损失函数」。
