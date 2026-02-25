@@ -17,8 +17,8 @@ function checkAuth(request: Request): boolean {
  * POST /api/cron/generate-path-lessons
  * 为 0→1 路径上每个知识节点 AI 生成一节完整微课并写入 generated_lessons（status=draft）。
  * 需配置 OPENAI_API_KEY；若设置了 CRON_SECRET，请求需带 Authorization: Bearer <CRON_SECRET>。
- * Body 可选: { "publish": true } 则直接发布；{ "limit": 3 } 仅生成前 N 个节点（便于分批或测试）。
- * GET 同样支持，可用 query: ?publish=1 & limit=5
+ * Body 可选: { "publish": true } 则直接发布；{ "limit": 3 } 仅生成前 N 个节点；{ "skip": 2 } 从第 3 个节点开始（便于分批 limit=1&skip=0,1,2...）。
+ * GET 同样支持，可用 query: ?publish=1&limit=5&skip=0
  */
 export async function POST(request: Request) {
   if (!checkAuth(request)) {
@@ -50,12 +50,14 @@ async function runGenerate(request: Request, method: string) {
 
   let publish = false;
   let limit: number | null = null;
+  let skip = 0;
 
   if (method === "POST") {
     try {
       const body = await request.json().catch(() => ({}));
       if (body.publish === true) publish = true;
       if (typeof body.limit === "number" && body.limit > 0) limit = Math.min(body.limit, 20);
+      if (typeof body.skip === "number" && body.skip >= 0) skip = Math.min(body.skip, 99);
     } catch {
       // ignore
     }
@@ -67,6 +69,11 @@ async function runGenerate(request: Request, method: string) {
     if (l != null) {
       const n = parseInt(l, 10);
       if (!isNaN(n) && n > 0) limit = Math.min(n, 20);
+    }
+    const s = u.searchParams.get("skip");
+    if (s != null) {
+      const n = parseInt(s, 10);
+      if (!isNaN(n) && n >= 0) skip = Math.min(n, 99);
     }
   }
 
@@ -84,7 +91,12 @@ async function runGenerate(request: Request, method: string) {
     );
   }
 
-  const toProcess = limit != null ? nodes.slice(0, limit) : nodes;
+  const from = Math.min(skip, nodes.length);
+  const to = limit != null ? Math.min(from + limit, nodes.length) : nodes.length;
+  const toProcess = nodes.slice(from, to);
+  if (!toProcess.length) {
+    return NextResponse.json({ message: "No nodes in range", created: 0, results: [] });
+  }
   const results: { nodeId: string; title: string; lessonId?: string; error?: string }[] = [];
 
   for (const node of toProcess) {

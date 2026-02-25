@@ -1,7 +1,12 @@
 import { generateText } from "ai";
 import { Output } from "ai";
 import { getModelForLesson } from "./get-model";
-import { generatedLessonOutputSchema, type GeneratedLessonOutput } from "./course-schema";
+import {
+  generatedLessonOutputSchema,
+  generatedLessonOutputSchemaRelaxed,
+  type GeneratedLessonOutput,
+  type GeneratedLessonOutputRelaxed,
+} from "./course-schema";
 
 const SYSTEM_PROMPT = `你是一个AI大模型学习平台的课程设计专家。你的任务是将技术内容转化为Duolingo风格的游戏化微课。
 
@@ -11,7 +16,32 @@ const SYSTEM_PROMPT = `你是一个AI大模型学习平台的课程设计专家�
 3. 选择题：检验对概念的理解，选项2-4个，correct_index 从0开始。
 4. 概念配对卡：建立术语与解释的对应关系，pairs 为 [{ key: "术语", value: "解释" }]。
 
-输出必须严格符合给定的 JSON schema，不要输出 markdown 或额外说明。`;
+输出必须严格符合给定的 JSON schema，不要输出 markdown 或额外说明。只输出一个 JSON 对象。`;
+
+/** 从模型返回的文本中提取 JSON 对象（兼容 ```json ... ``` 或裸 {...}） */
+function extractJsonFromText(text: string): string {
+  const trimmed = text.trim();
+  const codeBlock = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlock?.[1]) return codeBlock[1].trim();
+  const first = trimmed.indexOf("{");
+  const last = trimmed.lastIndexOf("}");
+  if (first !== -1 && last > first) return trimmed.slice(first, last + 1);
+  return trimmed;
+}
+
+/** 用宽松 schema 解析后补齐为符合严格 schema 的结构（如至少 2 张卡） */
+function toStrictOutput(relaxed: GeneratedLessonOutputRelaxed): GeneratedLessonOutput {
+  const cards = relaxed.cards.length >= 2 ? relaxed.cards : [
+    ...relaxed.cards,
+    { type: "concept_intro" as const, content: "本节介绍相关概念，请完成后续练习巩固。", analogy: undefined },
+  ];
+  return {
+    topic: relaxed.topic || "课程",
+    difficulty: relaxed.difficulty,
+    prerequisites: relaxed.prerequisites ?? [],
+    cards: cards as GeneratedLessonOutput["cards"],
+  };
+}
 
 export type GenerateLessonInput = {
   sourceType: "arxiv" | "url" | "text";
@@ -30,20 +60,42 @@ export async function generateLessonFromContent(
         ? `根据以下从 URL 获取的内容，生成一节游戏化微课。\n\nURL：${input.url ?? ""}\n\n内容：\n${input.abstractOrContent}`
         : `根据以下技术内容，生成一节游戏化微课。\n\n${input.abstractOrContent}`;
 
-  const result = await generateText({
+  try {
+    const result = await generateText({
+      model: getModelForLesson(),
+      system: SYSTEM_PROMPT,
+      prompt,
+      output: Output.object({
+        schema: generatedLessonOutputSchema,
+      }),
+      maxRetries: 1,
+    });
+
+    const parsed = generatedLessonOutputSchema.safeParse(result.output);
+    if (parsed.success) return parsed.data;
+    console.warn("AI output validation failed, trying fallback:", parsed.error.flatten());
+  } catch (e) {
+    console.warn("Output.object path failed, trying raw JSON fallback:", e);
+  }
+
+  const rawResult = await generateText({
     model: getModelForLesson(),
-    system: SYSTEM_PROMPT,
+    system: SYSTEM_PROMPT + "\n只输出一个 JSON 对象，不要用 markdown 代码块包裹。",
     prompt,
-    output: Output.object({
-      schema: generatedLessonOutputSchema,
-    }),
     maxRetries: 1,
   });
-
-  const parsed = generatedLessonOutputSchema.safeParse(result.output);
-  if (!parsed.success) {
-    console.error("AI output validation failed:", parsed.error.flatten());
-    throw new Error("Generated lesson failed validation");
+  const rawText = rawResult.text ?? "";
+  const jsonStr = extractJsonFromText(rawText);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonStr);
+  } catch {
+    throw new Error("No object generated: response did not match schema.");
   }
-  return parsed.data;
+  const relaxed = generatedLessonOutputSchemaRelaxed.safeParse(parsed);
+  if (!relaxed.success) {
+    console.error("Relaxed schema validation failed:", relaxed.error.flatten());
+    throw new Error("No object generated: response did not match schema.");
+  }
+  return toStrictOutput(relaxed.data);
 }

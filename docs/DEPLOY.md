@@ -171,39 +171,43 @@ Key 来自 **minimaxi.com** 时，在 Vercel 按下面配（每项保存后都�
 
 ### 具体操作步骤
 
-1. **先试 2 节（推荐）**  
-   在电脑终端执行（把下面两处替换成你的真实值）：
+**重要**：Vercel 免费/ Hobby 下函数约 60 秒超时，一次生成多节容易 **Connection reset by peer**。请用 **limit=1** 单节生成，多次调用。
+
+1. **先试 1 节**  
+   在终端执行（替换域名的 CRON_SECRET）：
    ```bash
-   curl -X POST "https://你的域名/api/cron/generate-path-lessons" \
+   curl -X POST "https://ailingo.vercel.app/api/cron/generate-path-lessons" \
      -H "Authorization: Bearer 你的CRON_SECRET" \
      -H "Content-Type: application/json" \
-     -d '{"limit":2}'
+     -d '{"limit":1}'
    ```
-   - **你的域名**：从 Vercel 的 Domains 里复制，例如 `https://ailingo-xxx.vercel.app`，不要末尾斜杠。
-   - **你的CRON_SECRET**：从 Vercel 的 Environment Variables 里 `CRON_SECRET` 的值复制。  
-   若返回里有 `created: 2` 且无报错，说明成功。
+   若返回里有 `"created":1` 且无报错，说明成功。
 
-2. **到管理后台审核**  
-   打开 `https://你的域名/admin`，用 `ADMIN_EMAILS` 里邮箱登录，在「课时」里能看到刚生成的 2 节（status 为 draft）。可点进去看内容，需要的话改为「发布」。
-
-3. **再全量生成（可选）**  
-   确认没问题后，再调一次接口生成全部节点（约 10 节）。因耗时较长，可分批调用，例如每次生成 3 节：
+2. **全量 10 节：每次 1 节，按 skip=0..9 调用**  
+   用 `limit=1` 和 `skip=0,1,...,9` 分别生成第 1～10 节，避免单次超时：
    ```bash
-   curl -X POST "https://你的域名/api/cron/generate-path-lessons" \
-     -H "Authorization: Bearer 你的CRON_SECRET" \
-     -H "Content-Type: application/json" \
-     -d '{"limit":3,"publish":true}'
+   for i in 0 1 2 3 4 5 6 7 8 9; do
+     curl -s -X POST "https://ailingo.vercel.app/api/cron/generate-path-lessons" \
+       -H "Authorization: Bearer 你的CRON_SECRET" \
+       -H "Content-Type: application/json" \
+       -d "{\"limit\":1,\"skip\":$i,\"publish\":true}"
+     echo ""
+     sleep 2
+   done
    ```
-   多执行几次（或把 `limit` 改为 10）直到全部生成；传 `"publish":true` 会直接发布，不传则保持 draft 由后台发布。
+   把 `你的CRON_SECRET` 换成真实值；若要 draft 不发布，把 `\"publish\":true` 去掉。
+
+3. **到管理后台审核**  
+   打开 `https://你的域名/admin`，用 `ADMIN_EMAILS` 里邮箱登录，在「课时」里查看/发布。
 
 ### 接口说明（供查阅）
 
 - **接口**：`POST` 或 `GET` **`/api/cron/generate-path-lessons`**
 - 若配置了 `CRON_SECRET`，请求头必须带：`Authorization: Bearer <CRON_SECRET>`。
-- **POST** Body 可选：`{ "publish": true }` 生成后直接发布；`{ "limit": 5 }` 仅生成前 5 个节点。
-- **GET** 可选 query：`?publish=1`、`?limit=5`。
+- **POST** Body 可选：`{ "publish": true }` 直接发布；`{ "limit": 5 }` 仅处理前 5 个节点；`{ "skip": 2 }` 从第 3 个节点开始（配合 limit=1 可逐节生成）。
+- **GET** 可选 query：`?publish=1`、`?limit=5`、`?skip=0`。
 - **行为**：按 `knowledge_nodes` 顺序，为每个节点调用 AI 生成一节完整微课，写入 `generated_lessons`。
-- **注意**：全量约 10 节，单节约 30–60 秒；Vercel 免费函数可能 60s 超时，建议用 `limit=2` 或 `limit=3` 分批调用。
+- **注意**：单节约 30–60 秒；Vercel 免费/Hobby 约 60s 超时，一次多节会 **Connection reset by peer**，请用 **limit=1** 并多次调用（见上方「全量 10 节」循环示例）。
 
 ### 若返回 "invalid api key"
 

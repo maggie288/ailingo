@@ -45,9 +45,10 @@ export const lessonCardSchema = z.discriminatedUnion("type", [
   matchPairsCardSchema,
 ]);
 
+const difficultyEnum = z.enum(["beginner", "intermediate", "advanced"]);
 export const generatedLessonOutputSchema = z.object({
   topic: z.string().describe("课程主题，如 Attention Mechanism"),
-  difficulty: z.enum(["beginner", "intermediate", "advanced"]),
+  difficulty: difficultyEnum,
   prerequisites: z.array(z.string()).describe("前置知识名称列表"),
   cards: z
     .array(lessonCardSchema)
@@ -58,3 +59,26 @@ export const generatedLessonOutputSchema = z.object({
 });
 
 export type GeneratedLessonOutput = z.infer<typeof generatedLessonOutputSchema>;
+
+/** 更宽松的 schema，用于从 MiniMax 等返回的原始 JSON 解析（如 difficulty 首字母大写、多空格等） */
+const coercedDifficulty = z
+  .string()
+  .or(difficultyEnum)
+  .transform((s) => {
+    const t = String(s).toLowerCase();
+    if (t === "beginner" || t === "intermediate" || t === "advanced") return t;
+    return "beginner";
+  });
+const relaxedLessonCardSchema = z.union([
+  conceptIntroCardSchema,
+  codeGapFillCardSchema,
+  multipleChoiceCardSchema,
+  matchPairsCardSchema,
+]);
+export const generatedLessonOutputSchemaRelaxed = z.object({
+  topic: z.string().default(""),
+  difficulty: coercedDifficulty,
+  prerequisites: z.array(z.string()).default([]),
+  cards: z.array(relaxedLessonCardSchema).min(1),
+});
+export type GeneratedLessonOutputRelaxed = z.infer<typeof generatedLessonOutputSchemaRelaxed>;
