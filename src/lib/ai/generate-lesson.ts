@@ -90,12 +90,17 @@ export async function generateLessonFromContent(
   try {
     parsed = JSON.parse(jsonStr);
   } catch {
-    throw new Error("No object generated: response did not match schema.");
+    const preview = rawText.slice(0, 200).replace(/\n/g, " ");
+    throw new Error(`No object generated: invalid JSON. Preview: ${preview || "(empty)"}`);
   }
   const relaxed = generatedLessonOutputSchemaRelaxed.safeParse(parsed);
   if (!relaxed.success) {
+    const preview = typeof parsed === "object" && parsed !== null ? JSON.stringify(parsed).slice(0, 200) : String(parsed).slice(0, 200);
     console.error("Relaxed schema validation failed:", relaxed.error.flatten());
-    throw new Error("No object generated: response did not match schema.");
+    throw new Error(`No object generated: schema mismatch. Preview: ${preview}`);
+  }
+  if (!relaxed.data.cards?.length) {
+    relaxed.data.cards = [{ type: "concept_intro", content: "本节介绍相关概念。", analogy: undefined }];
   }
   return toStrictOutput(relaxed.data);
 }

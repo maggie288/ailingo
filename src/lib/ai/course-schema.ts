@@ -60,7 +60,7 @@ export const generatedLessonOutputSchema = z.object({
 
 export type GeneratedLessonOutput = z.infer<typeof generatedLessonOutputSchema>;
 
-/** 更宽松的 schema，用于从 MiniMax 等返回的原始 JSON 解析（如 difficulty 首字母大写、多空格等） */
+/** 更宽松的 schema，用于从 MiniMax 等返回的原始 JSON 解析 */
 const coercedDifficulty = z
   .string()
   .or(difficultyEnum)
@@ -69,16 +69,67 @@ const coercedDifficulty = z
     if (t === "beginner" || t === "intermediate" || t === "advanced") return t;
     return "beginner";
   });
-const relaxedLessonCardSchema = z.union([
-  conceptIntroCardSchema,
-  codeGapFillCardSchema,
-  multipleChoiceCardSchema,
-  matchPairsCardSchema,
-]);
+function normalizeCardType(s: unknown): string {
+  const t = String(s ?? "").toLowerCase().replace(/[\s-]/g, "_");
+  if (["concept_intro", "code_gap_fill", "multiple_choice", "match_pairs"].includes(t)) return t;
+  return "concept_intro";
+}
+const anyCard = z.object({
+  type: z.string().optional(),
+  content: z.string().optional(),
+  analogy: z.string().optional(),
+  title: z.string().optional(),
+  question: z.string().optional(),
+  code_snippet: z.string().optional(),
+  gap_index: z.union([z.number(), z.string()]).optional(),
+  gap_answer: z.string().optional(),
+  hint: z.string().optional(),
+  options: z.array(z.string()).optional(),
+  correct_index: z.union([z.number(), z.string()]).optional(),
+  explanation: z.string().optional(),
+  pairs: z.array(z.union([
+    z.object({ key: z.string(), value: z.string() }),
+    z.tuple([z.string(), z.string()]),
+  ])).optional(),
+}).passthrough();
+const relaxedLessonCardSchema = anyCard.transform((o) => {
+  const type = normalizeCardType(o.type);
+  if (type === "concept_intro") {
+    return { type: "concept_intro" as const, content: o.content ?? "概念介绍", analogy: o.analogy };
+  }
+  if (type === "code_gap_fill") {
+    return {
+      type: "code_gap_fill" as const,
+      title: o.title ?? "代码填空",
+      code_snippet: o.code_snippet ?? "____",
+      gap_index: Math.max(0, Number(o.gap_index) || 0),
+      gap_answer: o.gap_answer ?? "",
+      hint: o.hint,
+    };
+  }
+  if (type === "multiple_choice") {
+    const options = Array.isArray(o.options) && o.options.length >= 2 ? o.options.slice(0, 5) : ["是", "否"];
+    const idx = Math.max(0, Math.min(Number(o.correct_index) ?? 0, options.length - 1));
+    return {
+      type: "multiple_choice" as const,
+      question: o.question ?? "请选择",
+      options,
+      correct_index: idx,
+      explanation: o.explanation ?? "",
+    };
+  }
+  if (type === "match_pairs") {
+    const pairs = (o.pairs ?? []).map((p: { key?: string; value?: string } | [string, string]) =>
+      Array.isArray(p) ? { key: String(p[0]), value: String(p[1]) } : { key: String(p?.key ?? ""), value: String(p?.value ?? "") }
+    ).filter((p: { key: string; value: string }) => p.key || p.value);
+    return { type: "match_pairs" as const, title: o.title ?? "概念配对", pairs };
+  }
+  return { type: "concept_intro" as const, content: o.content ?? String(o.title ?? o.question ?? "概念"), analogy: o.analogy };
+});
 export const generatedLessonOutputSchemaRelaxed = z.object({
   topic: z.string().default(""),
   difficulty: coercedDifficulty,
   prerequisites: z.array(z.string()).default([]),
-  cards: z.array(relaxedLessonCardSchema).min(1),
+  cards: z.array(relaxedLessonCardSchema).default([]),
 });
 export type GeneratedLessonOutputRelaxed = z.infer<typeof generatedLessonOutputSchemaRelaxed>;
