@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 const REVIEW_AFTER_DAYS = 3;
 const MAX_SUGGEST = 10;
 

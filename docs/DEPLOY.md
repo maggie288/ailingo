@@ -91,13 +91,25 @@ git push -u origin main
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase **service_role** key（仅服务端，勿泄露） | 建议 |
 | `NEXT_PUBLIC_APP_URL` | 生产站完整 URL，如 `https://ailingo-xxx.vercel.app`（部署后可改） | ✅ |
 | `MINIMAX_API_KEY` | MiniMax 开放平台 API Key（课程/概念/题目生成，优先使用 M2.5） | 与 OpenAI 二选一 |
-| `MINIMAX_BASE_URL` | Key 来自**国内版 minimaxi.com** 时必填：`https://api.minimaxi.com/anthropic/v1` | 国内版 Key 必填 |
+| `MINIMAX_BASE_URL` | 国内版必填，见下方「国内版配置」 | 国内版 Key 必填 |
+| `MINIMAX_USE_OPENAI` | 国内版建议先试：填 `1` 走 OpenAI 兼容接口 | 国内版建议 |
+| `MINIMAX_GROUP_ID` | 国内版若接口要求：在「账户管理-基本信息」复制 group_id 填入 | 按需 |
 | `OPENAI_API_KEY` | OpenAI API Key（未配 MiniMax 时用于文本生成；上传资料中的图片解析仅支持 OpenAI） | 与 MiniMax 二选一或同配 |
 | `ADMIN_EMAILS` | 管理员邮箱，多个用英文逗号，如 `a@b.com,c@d.com` | 需 /admin 时 |
 | `GITHUB_TOKEN` | GitHub Personal Access Token（可选，cron 用） | 可选 |
 | `CRON_SECRET` | 任意随机字符串（保护 cron 接口） | 可选 |
 
 4. 每添加一条点 **Save**；全部填完后可到 **Deployments** 选最新一次部署 → **Redeploy**，或下次 push 代码会自动用新变量构建。
+
+### 国内版 MiniMax（minimaxi.com）在 Vercel 的配置
+
+Key 来自 **minimaxi.com** 时，在 Vercel 按下面配（每项保存后都要 **Redeploy** 才生效）：
+
+1. **MINIMAX_API_KEY**：从 [minimaxi 接口密钥](https://platform.minimaxi.com/user-center/basic-information/interface-key) 复制的完整 Key。
+2. **MINIMAX_BASE_URL**：先试 **`https://api.minimaxi.com/v1`**（OpenAI 兼容，国内版常用）。
+3. **MINIMAX_USE_OPENAI**：填 **`1`**（和上面 base 一起用，走国内版 OpenAI 兼容接口）。
+4. **MINIMAX_GROUP_ID**（可选）：若仍报 invalid api key，到 [账户管理 - 基本信息](https://platform.minimaxi.com/user-center/basic-information) 复制 **group_id**，在 Vercel 新增该变量并填进去。
+5. 若 `https://api.minimaxi.com/v1` + `MINIMAX_USE_OPENAI=1` 仍不行，可改为用 Anthropic 兼容：**MINIMAX_BASE_URL** 改为 **`https://api.minimaxi.com/anthropic/v1`**，**MINIMAX_USE_OPENAI** 删掉或留空，再 Redeploy 试一次。
 
 ### 若 Vercel 构建失败
 

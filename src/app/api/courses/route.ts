@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { MOCK_COURSES } from "@/lib/data/mock";
 import type { Course } from "@/types/database";
 
+export const dynamic = "force-dynamic";
+
 function filterCourses(courses: Course[], difficulty: string | null, search: string | null): Course[] {
   let list = courses;
   if (difficulty && ["beginner", "intermediate", "advanced"].includes(difficulty)) {

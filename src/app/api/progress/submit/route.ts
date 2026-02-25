@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { updateStreakOnLessonComplete } from "@/lib/gamification/streak";
 import { unlockAchievements } from "@/lib/gamification/achievements";
 
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

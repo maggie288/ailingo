@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 const DEFAULT_TASKS = [
   { task_type: "learn", target_count: 1, reward_points: 50 },
   { task_type: "quiz", target_count: 10, reward_points: 30 },

@@ -7,6 +7,8 @@ import { suggestNodeTitle } from "@/lib/learning-path/map";
  * GET /api/learning-path/suggest?topic=...&difficulty=...
  * 返回推荐挂载的节点 id 与 title（用于展示或写入 generated_lessons）
  */
+export const dynamic = "force-dynamic";
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const topic = searchParams.get("topic") ?? "";

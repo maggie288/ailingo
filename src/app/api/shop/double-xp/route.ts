@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 const COST_DOUBLE_XP = 30;
 const DURATION_MS = 24 * 60 * 60 * 1000; // 24h to use
 
