@@ -3,6 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
+function isAdmin(email: string | undefined): boolean {
+  const list = process.env.ADMIN_EMAILS;
+  if (!list || !email) return false;
+  return list.split(",").map((e) => e.trim().toLowerCase()).includes(email.toLowerCase());
+}
+
 export async function GET() {
   try {
     const supabase = await createClient();
@@ -12,12 +18,19 @@ export async function GET() {
     }
     const { data: profile } = await supabase
       .from("profiles")
-      .select("id, username, avatar_url, preferred_language, theme, created_at")
+      .select("id, username, avatar_url, preferred_language, theme, created_at, subscription_plan, subscription_end_at")
       .eq("id", user.id)
       .single();
+    const plan = (profile as { subscription_plan?: string } | null)?.subscription_plan ?? "free";
+    const endAt = (profile as { subscription_end_at?: string } | null)?.subscription_end_at;
+    const isPro = plan === "pro" && (!endAt || new Date(endAt) > new Date());
     return NextResponse.json({
       id: user.id,
       email: user.email ?? undefined,
+      isAdmin: isAdmin(user.email ?? undefined),
+      subscription_plan: plan,
+      subscription_end_at: endAt ?? undefined,
+      isPro,
       ...profile,
     });
   } catch (err) {

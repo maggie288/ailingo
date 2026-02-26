@@ -122,9 +122,10 @@ export default function UploadMaterialPage() {
         right={<TopBarStats />}
       />
       <main className="p-4 pb-24">
-        <p className="text-muted text-sm mb-4">
-          粘贴文本或上传 .md / .txt / .pdf / 图片（PNG、JPG、WebP），解析后将自动在本页生成课程，无需跳转。
-        </p>
+        <div className="rounded-card border border-knowledge/30 bg-knowledge/5 p-3 mb-4 text-sm">
+          <p className="font-medium text-foreground mb-0.5">上传后由 AI 大模型生成微课</p>
+          <p className="text-muted">粘贴或上传 .md / .txt / .pdf / 图片，解析后 AI 根据内容自动生成概念卡与练习题，不是写死课程。</p>
+        </div>
 
         {result ? (
           <div className="rounded-card border border-border bg-card p-4 mb-4 space-y-3">

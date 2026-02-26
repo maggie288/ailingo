@@ -146,9 +146,12 @@ export default function GenerateCoursePage() {
       <main className="p-4 pb-24">
         {!lesson ? (
           <>
-            <p className="text-muted text-sm mb-4">
-              从主题、ArXiv 论文或网页 URL 生成一节游戏化微课（需配置 MINIMAX_API_KEY 或 OPENAI_API_KEY）。论文/URL 采用「提交任务 → 轮询结果」，提交后请勿关闭页面，约 30～60 秒内完成。
-            </p>
+            <div className="rounded-card border border-knowledge/30 bg-knowledge/5 p-3 mb-4 text-sm">
+              <p className="font-medium text-foreground mb-1">AI 大模型生成，不是写死课程</p>
+              <p className="text-muted">
+                根据你填写的主题、论文摘要或网页内容，AI 自动生成概念卡、选择题、代码填空、概念配对等，一节约 5 分钟。主题模式即时返回；论文/URL 约 30～60 秒，提交后请勿关闭页面。
+              </p>
+            </div>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div className="flex gap-2 flex-wrap">
                 <button
@@ -193,13 +196,16 @@ export default function GenerateCoursePage() {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={
                   mode === "topic"
-                    ? "如：Transformer 架构、注意力机制"
+                    ? "如：Transformer 架构、Self-Attention、RAG 检索增强"
                     : mode === "arxiv"
-                      ? "论文 ID，如 2301.12345 或完整 arXiv URL"
-                      : "https://..."
+                      ? "1706.03762 或 https://arxiv.org/abs/1706.03762"
+                      : "https://blog.openai.com/..."
                 }
                 className="w-full h-12 px-3 rounded-button border border-border bg-card text-foreground"
               />
+              {mode === "topic" && (
+                <p className="text-xs text-muted">示例主题：LLM 推理、MoE 混合专家、向量数据库、Prompt 工程</p>
+              )}
               <button
                 type="submit"
                 disabled={loading}
@@ -208,12 +214,19 @@ export default function GenerateCoursePage() {
                 {loading
                   ? batchProgress && batchProgress.total > 0
                     ? `已生成 ${batchProgress.done}/${batchProgress.total} 节…`
-                    : "生成中…"
-                  : "生成课程"}
+                    : "AI 生成中…"
+                  : "用 AI 生成课程"}
               </button>
             </form>
             {error && (
-              <p className="mt-3 text-error text-sm">{error}</p>
+              <div className="mt-3">
+                <p className="text-error text-sm">{error}</p>
+                {error.includes("我的生成课程") && (
+                  <Link href="/learn" className="mt-2 inline-block text-sm font-medium text-primary underline">
+                    前往「学习」页查看我的生成课程 →
+                  </Link>
+                )}
+              </div>
             )}
           </>
         ) : courseCreated ? (

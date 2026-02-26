@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Nunito } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { MobileContainer } from "@/components/layout/MobileContainer";
 import { BottomNav } from "@/components/layout/BottomNav";
@@ -12,8 +13,8 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "AILingo - AI大模型学习",
-  description: "从入门到精通的AI大模型学习平台，游戏化学习体验",
+  title: "AILingo - Learn AI & LLM with AI-generated micro-lessons",
+  description: "Turn papers, URLs, and topics into bite-sized lessons. Duolingo-style for AI/ML. Concept cards, quizzes, progress tracking. Mobile-first.",
   manifest: "/manifest.json",
 };
 
@@ -43,6 +44,7 @@ export default function RootLayout({
             {children}
           </MobileContainer>
           <BottomNav />
+          <Analytics />
         </ThemeProvider>
       </body>
     </html>

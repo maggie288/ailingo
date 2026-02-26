@@ -106,16 +106,20 @@ export function PathPageClient() {
           0→1 路径由知识节点与 AI 生成课时组成。当前暂无路径数据。
         </p>
         <div className="rounded-card border border-dashed border-border bg-card p-4 text-sm text-muted">
-          <p className="font-medium text-foreground mb-2">如何生成完整 0→1 课程？</p>
-          <ol className="list-decimal list-inside space-y-1">
-            <li>确认已在 Supabase 执行完整迁移（含知识节点种子）：<code className="text-foreground">run-all-in-order.sql</code></li>
-            <li>调用接口为每个知识节点 AI 生成课时：<code className="text-foreground">POST /api/cron/generate-path-lessons</code>，详见 <code className="text-foreground">docs/DEPLOY.md</code></li>
-          </ol>
+          <p className="font-medium text-foreground mb-2">你可以这样开始</p>
+          <p className="mb-3">使用「上传资料生成课」或「论文/URL 生成」创建自己的微课，登录后会自动出现在「我的生成课程」。</p>
+          <div className="flex flex-wrap gap-2">
+            <a href="/learn/upload" className="inline-block px-4 py-2 rounded-button bg-primary text-white text-sm font-bold">上传资料</a>
+            <a href="/learn/generate" className="inline-block px-4 py-2 rounded-button border border-border text-foreground text-sm font-medium">论文 / URL 生成</a>
+          </div>
           <a href="/learn" className="inline-block mt-3 text-primary font-medium">返回学习</a>
         </div>
       </div>
     );
   }
+
+  const totalLessons = path.reduce((sum, slot) => sum + slot.lessons.length, 0);
+  const hasFewLessons = totalLessons < 3;
 
   const pathByPhase: Record<number, PathSlot[]> = {};
   for (const slot of path) {
@@ -127,6 +131,16 @@ export function PathPageClient() {
 
   return (
     <div className="space-y-6">
+      {hasFewLessons && (
+        <div className="rounded-card border border-knowledge/40 bg-knowledge/5 p-4 text-sm">
+          <p className="font-medium text-foreground mb-1">更多课时持续更新中</p>
+          <p className="text-muted mb-3">先用下方阶段闯关；也可用「上传资料」或「论文/URL 生成」自建微课，内容更丰富。</p>
+          <div className="flex flex-wrap gap-2">
+            <a href="/learn/upload" className="inline-block px-3 py-1.5 rounded-button bg-knowledge/20 text-knowledge text-sm font-medium">上传资料</a>
+            <a href="/learn/generate" className="inline-block px-3 py-1.5 rounded-button border border-border text-foreground text-sm">论文/URL 生成</a>
+          </div>
+        </div>
+      )}
       <p className="text-muted text-sm">
         选择阶段进入，按关卡顺序闯关学习。
       </p>
