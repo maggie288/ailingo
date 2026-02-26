@@ -21,6 +21,7 @@ type NodeRow = {
   difficulty_level: number;
   order_index: number;
   category: string | null;
+  prerequisites?: string[];
   created_at?: string;
 };
 
@@ -83,15 +84,17 @@ export default function AdminPage() {
         title: editingNode.title,
         description: editingNode.description ?? "",
         difficulty_level: editingNode.difficulty_level,
+        prerequisites: editingNode.prerequisites ?? [],
       }),
     })
       .then((r) => r.json())
       .then((data) => {
         if (data.error) return;
         setNodes((prev) =>
-          prev.map((n) => (n.id === editingNode.id ? { ...n, ...data } : n))
+          prev.map((n) => (n.id === editingNode.id ? { ...n, ...data, prerequisites: editingNode.prerequisites } : n))
         );
         setEditingNode(null);
+        fetchNodes();
       })
       .finally(() => setSavingNode(false));
   };
@@ -227,6 +230,9 @@ export default function AdminPage() {
                   {n.description && (
                     <p className="text-xs text-muted mt-1 line-clamp-2">{n.description}</p>
                   )}
+                  {Array.isArray(n.prerequisites) && n.prerequisites.length > 0 && (
+                    <p className="text-xs text-muted mt-1">前置：{n.prerequisites.length} 个节点</p>
+                  )}
                   <button
                     type="button"
                     onClick={() => setEditingNode({ ...n })}
@@ -279,8 +285,58 @@ export default function AdminPage() {
                   setEditingNode((prev) =>
                     prev ? { ...prev, difficulty_level: Math.min(10, Math.max(1, Number(e.target.value) || 1)) } : null
                   )}
-                className="w-full h-10 px-3 rounded-button border border-border bg-background text-foreground mb-4"
+                className="w-full h-10 px-3 rounded-button border border-border bg-background text-foreground mb-3"
               />
+              <label className="block text-sm text-muted mb-1">前置节点（需先完成这些节点才能学本节）</label>
+              <div className="mb-3 space-y-1 max-h-32 overflow-y-auto rounded-button border border-border bg-background p-2">
+                {(editingNode.prerequisites ?? []).map((pid) => {
+                  const p = nodes.find((x) => x.id === pid);
+                  return (
+                    <div
+                      key={pid}
+                      className="flex items-center justify-between gap-2 py-1 px-2 rounded bg-muted/50 text-sm"
+                    >
+                      <span className="truncate text-foreground">{p?.title ?? pid}</span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setEditingNode((prev) =>
+                            prev
+                              ? { ...prev, prerequisites: (prev.prerequisites ?? []).filter((id) => id !== pid) }
+                              : null
+                          )}
+                        className="text-error hover:underline shrink-0"
+                      >
+                        移除
+                      </button>
+                    </div>
+                  );
+                })}
+                {(editingNode.prerequisites ?? []).length === 0 && (
+                  <p className="text-xs text-muted py-1">无前置，学完上一节即可（或从路径顺序解锁）</p>
+                )}
+              </div>
+              <select
+                className="w-full h-10 px-3 rounded-button border border-border bg-background text-foreground mb-4 text-sm"
+                value=""
+                onChange={(e) => {
+                  const id = e.target.value;
+                  if (!id) return;
+                  const already = editingNode.prerequisites ?? [];
+                  if (already.includes(id)) return;
+                  setEditingNode((prev) => prev ? { ...prev, prerequisites: [...already, id] } : null);
+                  e.target.value = "";
+                }}
+              >
+                <option value="">+ 添加前置节点</option>
+                {nodes
+                  .filter((n) => n.id !== editingNode?.id && !(editingNode?.prerequisites ?? []).includes(n.id))
+                  .map((n) => (
+                    <option key={n.id} value={n.id}>
+                      [{n.order_index}] {n.title}
+                    </option>
+                  ))}
+              </select>
               <div className="flex gap-2">
                 <button
                   type="button"

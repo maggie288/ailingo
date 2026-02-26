@@ -51,6 +51,53 @@ git push -u origin main
      ```
    **注意**：若用方式 B 且执行第 4 个文件时报错 “policy … already exists”，说明 `initial_schema` 里已存在同名的 streak 策略，可跳过该文件中关于 `streaks` 的两条 `CREATE POLICY`，只执行创建 `daily_tasks` 表和 `user_achievements` 的 INSERT 策略即可。
 
+#### 已有项目：只执行「学习目标 + 通过标准」增量迁移（P0 课程设计）
+
+若你**已经跑过完整迁移**，且库里已有 `generated_lessons` 表（例如已生成 200 课时），只需补上两列即可，无需重跑整份 `run-all-in-order.sql`。
+
+**操作步骤：**
+
+1. 登录 [Supabase](https://supabase.com) → 进入你的 AILingo 项目。
+2. 左侧菜单点击 **SQL Editor**。
+3. 点击 **New query**，在编辑器里粘贴下面整段 SQL：
+
+```sql
+-- P0 课程设计：每节学习目标 + 通过标准
+ALTER TABLE public.generated_lessons
+  ADD COLUMN IF NOT EXISTS learning_objectives JSONB DEFAULT '[]',
+  ADD COLUMN IF NOT EXISTS pass_threshold NUMERIC(3,2) DEFAULT 0.8;
+COMMENT ON COLUMN public.generated_lessons.learning_objectives IS '1-3条本节学习目标，可被练习检验';
+COMMENT ON COLUMN public.generated_lessons.pass_threshold IS '通过标准，0-1，默认0.8即80%正确率';
+```
+
+4. 点击右下角 **Run**（或 Ctrl/Cmd + Enter）。
+5. 看到 **Success. No rows returned** 即表示执行成功；若提示列已存在（`column ... already exists`），说明之前已执行过，可忽略。
+
+**执行后：**
+
+- 已有 200 课时会多出 `learning_objectives`（空数组 `[]`）和 `pass_threshold`（0.8）。接口和前端会对旧数据做兼容：目标展示为「理解并掌握：{主题}」，阈值按 0.8 计算通过。
+- 之后新生成的课时会由 AI 正常写入这两列。
+
+**前置锁定说明：** 路径上的「先完成：X」依赖 `knowledge_nodes.prerequisites`（节点 ID 数组）。若当前种子里 `prerequisites` 多为空，可二选一：
+- **方式 A（推荐）**：在 SQL Editor 执行下面「线性前置」脚本，一次性为所有节点按顺序设置「上一节为前置」：
+- **方式 B**：在管理后台 **/admin → 知识节点 → 编辑** 中，为每个节点手动添加「前置节点」。
+
+**线性前置脚本（复制到 SQL Editor 执行）：**
+
+```sql
+-- 为已有节点按 order_index 设置线性前置：每节依赖上一节
+UPDATE public.knowledge_nodes n1
+SET prerequisites = (
+  SELECT COALESCE(jsonb_agg(n2.id::text), '[]'::jsonb)
+  FROM public.knowledge_nodes n2
+  WHERE n2.order_index = n1.order_index - 1
+),
+updated_at = now()
+WHERE n1.order_index > 0;
+```
+
+执行后，第 1 节无前置，第 2 节依赖第 1 节，第 3 节依赖第 2 节……路径页会按「先完成上一节」锁定。详见 `docs/PRODUCT_COURSE_DESIGN.md`。
+
 ### 3. 环境变量清单
 
 | 变量 | 必填 | 说明 |

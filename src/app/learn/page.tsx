@@ -1,6 +1,6 @@
 import { TopBar } from "@/components/layout/TopBar";
 import { TopBarStats } from "@/components/layout/TopBarStats";
-import { CourseList } from "@/components/learn/CourseList";
+import { PathPageClient } from "@/components/learn/PathPageClient";
 import { GuestLearnTip } from "@/components/learn/GuestLearnTip";
 import { StreakReminder } from "@/components/gamification/StreakReminder";
 
@@ -13,36 +13,28 @@ export default function LearnPage() {
         <div className="mb-4">
           <StreakReminder />
         </div>
-        <p className="text-muted text-sm mb-4">选择课程开始学习</p>
-        <div className="mb-4 space-y-2">
-          <a
-            href="/learn/path"
-            className="flex items-center justify-center gap-2 h-12 rounded-card border-2 border-primary/30 bg-primary/10 text-primary font-medium"
-          >
-            0→1 学习路径（知识节点 + AI 课）
-          </a>
+        <div className="mb-4 flex flex-wrap gap-2">
           <a
             href="/learn/graph"
-            className="flex items-center justify-center gap-2 h-11 rounded-card border border-border bg-card font-medium text-foreground"
+            className="flex items-center justify-center gap-2 h-11 rounded-card border border-border bg-card font-medium text-foreground px-4"
           >
-            知识图谱可视化
+            知识图谱
           </a>
-        </div>
-        <CourseList />
-        <div className="mt-4 space-y-2">
           <a
             href="/learn/upload"
-            className="flex items-center justify-center gap-2 h-12 rounded-card border-2 border-dashed border-border text-foreground font-medium"
+            className="flex items-center justify-center gap-2 h-11 rounded-card border-2 border-dashed border-border text-foreground font-medium px-4"
           >
-            上传资料（粘贴 / 文件）→ 再生成课
+            上传资料生成课
           </a>
           <a
             href="/learn/generate"
-            className="flex items-center justify-center gap-2 h-12 rounded-card border-2 border-dashed border-knowledge text-knowledge font-medium"
+            className="flex items-center justify-center gap-2 h-11 rounded-card border-2 border-dashed border-knowledge text-knowledge font-medium px-4"
           >
-            从论文 / URL AI 生成课程
+            论文 / URL 生成
           </a>
         </div>
+        <h2 className="text-base font-bold text-foreground mb-2">0→1 学习路径目录（AI 生成课程）</h2>
+        <PathPageClient />
       </main>
     </>
   );
