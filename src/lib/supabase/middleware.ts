@@ -8,7 +8,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.next({ request });
   }
 
-  const response = NextResponse.next({ request });
+  const supabaseResponse = NextResponse.next({ request });
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() {
@@ -16,12 +16,13 @@ export async function updateSession(request: NextRequest) {
       },
       setAll(cookiesToSet) {
         cookiesToSet.forEach(({ name, value, options }) =>
-          response.cookies.set(name, value, options)
+          supabaseResponse.cookies.set(name, value, options)
         );
       },
     },
   });
 
-  await supabase.auth.getUser();
-  return response;
+  // Use getClaims() so the session is refreshed and cookies stay in sync (avoids random logouts).
+  await supabase.auth.getClaims();
+  return supabaseResponse;
 }

@@ -291,3 +291,22 @@ CREATE POLICY "Users can insert own user_courses" ON public.user_courses FOR INS
 CREATE POLICY "Users can delete own user_courses" ON public.user_courses FOR DELETE USING (auth.uid() = user_id);
 ALTER TABLE public.generated_lessons ADD COLUMN IF NOT EXISTS user_course_id UUID REFERENCES public.user_courses(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_generated_lessons_user_course ON public.generated_lessons(user_course_id);
+
+-- ---------- 13. 20250227100000_generation_jobs.sql (异步论文/URL 生成) ----------
+CREATE TABLE IF NOT EXISTS public.generation_jobs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL CHECK (type IN ('arxiv', 'url')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+  input JSONB NOT NULL DEFAULT '{}',
+  result JSONB,
+  error TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_generation_jobs_user ON public.generation_jobs(user_id);
+CREATE INDEX IF NOT EXISTS idx_generation_jobs_status ON public.generation_jobs(status);
+ALTER TABLE public.generation_jobs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can read own generation_jobs" ON public.generation_jobs FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own generation_jobs" ON public.generation_jobs FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own generation_jobs" ON public.generation_jobs FOR UPDATE USING (auth.uid() = user_id);

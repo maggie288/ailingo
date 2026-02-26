@@ -25,7 +25,8 @@ export default function GenerateCoursePage() {
 
     setLoading(true);
     try {
-      const url =
+      const isAsync = mode === "arxiv" || mode === "url";
+      const submitUrl =
         mode === "topic"
           ? "/api/generate/course"
           : mode === "arxiv"
@@ -37,23 +38,61 @@ export default function GenerateCoursePage() {
           : mode === "arxiv"
             ? { arxivId: value }
             : { url: value };
-      const res = await fetch(url, {
+
+      const res = await fetch(submitUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "生成失败");
-      setLesson({
-        lesson_id: data.lesson_id,
-        topic: data.topic,
-        difficulty: data.difficulty,
-        prerequisites: data.prerequisites ?? [],
-        learning_objectives: data.learning_objectives?.length ? data.learning_objectives : [data.topic ? `理解并掌握：${data.topic}` : "完成本节练习"],
-        pass_threshold: typeof data.pass_threshold === "number" ? data.pass_threshold : 0.8,
-        cards: data.cards ?? [],
-      });
-      setInput("");
+
+      if (!res.ok) throw new Error(data.error ?? "提交失败");
+
+      if (!isAsync) {
+        setLesson({
+          lesson_id: data.lesson_id,
+          topic: data.topic,
+          difficulty: data.difficulty,
+          prerequisites: data.prerequisites ?? [],
+          learning_objectives: data.learning_objectives?.length ? data.learning_objectives : [data.topic ? `理解并掌握：${data.topic}` : "完成本节练习"],
+          pass_threshold: typeof data.pass_threshold === "number" ? data.pass_threshold : 0.8,
+          cards: data.cards ?? [],
+        });
+        setInput("");
+        return;
+      }
+
+      const jobId = data.jobId;
+      if (!jobId) throw new Error("未返回任务 ID");
+
+      fetch(`/api/generate/job/${jobId}/process`, { method: "POST" }).catch(() => {});
+
+      const pollInterval = 2000;
+      const maxPolls = 90;
+      for (let i = 0; i < maxPolls; i++) {
+        await new Promise((r) => setTimeout(r, i === 0 ? 1500 : pollInterval));
+        const jobRes = await fetch(`/api/generate/job/${jobId}`);
+        const job: { status: string; result?: Record<string, unknown>; error?: string } = await jobRes.json();
+        if (job.status === "completed" && job.result) {
+          const r = job.result;
+          setLesson({
+            lesson_id: (r.lesson_id as string) ?? "",
+            topic: (r.topic as string) ?? "",
+            difficulty: (["beginner", "intermediate", "advanced"].includes(r.difficulty as string) ? r.difficulty : "intermediate") as "beginner" | "intermediate" | "advanced",
+            prerequisites: Array.isArray(r.prerequisites) ? (r.prerequisites as string[]) : [],
+            learning_objectives: Array.isArray(r.learning_objectives) ? (r.learning_objectives as string[]) : [],
+            pass_threshold: typeof r.pass_threshold === "number" ? r.pass_threshold : 0.8,
+            cards: Array.isArray(r.cards) ? r.cards : [],
+          });
+          setInput("");
+          return;
+        }
+        if (job.status === "failed") {
+          setError(job.error ?? "生成失败");
+          return;
+        }
+      }
+      setError("生成超时，请到「学习 → 我的生成课程」查看是否已生成。");
     } catch (err) {
       setError(err instanceof Error ? err.message : "生成失败");
     } finally {
@@ -75,7 +114,7 @@ export default function GenerateCoursePage() {
         {!lesson ? (
           <>
             <p className="text-muted text-sm mb-4">
-              从主题、ArXiv 论文或网页 URL 生成一节游戏化微课（需配置 MINIMAX_API_KEY 或 OPENAI_API_KEY）。
+              从主题、ArXiv 论文或网页 URL 生成一节游戏化微课（需配置 MINIMAX_API_KEY 或 OPENAI_API_KEY）。论文/URL 采用「提交任务 → 轮询结果」，提交后请勿关闭页面，约 30～60 秒内完成。
             </p>
             <form onSubmit={handleSubmit} className="space-y-3">
               <div className="flex gap-2 flex-wrap">
