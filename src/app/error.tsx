@@ -9,6 +9,7 @@ export default function RootError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  void error; // error boundary prop, not shown in prod
   return (
     <div className="min-h-[60vh] flex flex-col items-center justify-center p-6">
       <p className="text-muted-foreground mb-4 text-center">
