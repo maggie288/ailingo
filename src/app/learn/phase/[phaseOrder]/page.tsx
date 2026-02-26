@@ -12,10 +12,10 @@ function clampPhaseOrder(n: number): number {
 
 export default async function PhasePage({ params }: Props) {
   try {
-    const p = await params;
+    const p = await Promise.resolve(params).catch(() => ({ phaseOrder: "1" }));
     const phaseOrderRaw = typeof p?.phaseOrder === "string" ? p.phaseOrder : "1";
     const order = clampPhaseOrder(parseInt(phaseOrderRaw, 10));
-    const phaseName = getPhaseName(order);
+    const phaseName = getPhaseName(order) || "阶段";
 
     return (
       <>

@@ -30,21 +30,27 @@ export async function GET(
       return NextResponse.json({ error: "Lesson not found" }, { status: 404 });
     }
 
+    const topic = typeof data.topic === "string" && data.topic.trim() ? data.topic.trim() : "本节课程";
     const objectives = Array.isArray(data.learning_objectives) && data.learning_objectives.length > 0
-      ? data.learning_objectives
-      : [data.topic ? `理解并掌握：${data.topic}` : "完成本节练习"];
+      ? data.learning_objectives.filter((o): o is string => typeof o === "string")
+      : [`理解并掌握：${topic}`];
     const threshold = typeof data.pass_threshold === "number" && data.pass_threshold >= 0 && data.pass_threshold <= 1
       ? data.pass_threshold
       : 0.8;
+    const difficulty = ["beginner", "intermediate", "advanced"].includes(data.difficulty as string)
+      ? (data.difficulty as GeneratedLessonJSON["difficulty"])
+      : "beginner";
+    const prerequisites = Array.isArray(data.prerequisites) ? data.prerequisites.filter((p): p is string => typeof p === "string") : [];
+    const cards = Array.isArray(data.cards) ? data.cards : [];
 
     const json: GeneratedLessonJSON = {
       lesson_id: data.id,
-      topic: data.topic,
-      difficulty: data.difficulty as GeneratedLessonJSON["difficulty"],
-      prerequisites: Array.isArray(data.prerequisites) ? data.prerequisites : [],
+      topic,
+      difficulty,
+      prerequisites,
       learning_objectives: objectives,
       pass_threshold: threshold,
-      cards: Array.isArray(data.cards) ? data.cards : [],
+      cards,
     };
     return NextResponse.json(json);
   } catch (err) {

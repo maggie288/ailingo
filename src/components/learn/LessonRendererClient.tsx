@@ -9,7 +9,8 @@ type Props = { lesson: GeneratedLessonJSON };
 const SCORABLE_TYPES = ["multiple_choice", "code_gap_fill"];
 
 export function LessonRendererClient({ lesson }: Props) {
-  const totalScorable = lesson.cards.filter((c) => SCORABLE_TYPES.includes(c.type)).length;
+  const cards = Array.isArray(lesson.cards) ? lesson.cards : [];
+  const totalScorable = cards.filter((c) => SCORABLE_TYPES.includes((c as { type?: string }).type ?? "")).length;
   const answeredCount = useRef(0);
   const correctCount = useRef(0);
   const submitted = useRef(false);

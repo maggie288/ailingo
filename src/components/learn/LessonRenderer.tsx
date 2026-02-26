@@ -48,17 +48,19 @@ function CardRenderer({
 }
 
 export function LessonRenderer({ lesson, onCardCorrect, onCardIncorrect }: Props) {
-  const objectives = lesson.learning_objectives?.length
+  const objectives = Array.isArray(lesson.learning_objectives) && lesson.learning_objectives.length > 0
     ? lesson.learning_objectives
     : [];
+  const prerequisites = Array.isArray(lesson.prerequisites) ? lesson.prerequisites : [];
+  const cards = Array.isArray(lesson.cards) ? lesson.cards : [];
+  const topic = typeof lesson.topic === "string" ? lesson.topic : "本节课程";
   return (
     <div className="space-y-4">
       <div className="mb-4">
-        <h1 className="text-xl font-bold text-foreground">{lesson.topic}</h1>
+        <h1 className="text-xl font-bold text-foreground">{topic}</h1>
         <p className="text-sm text-muted">
-          {lesson.difficulty}
-          {lesson.prerequisites.length > 0 &&
-            ` · 前置：${lesson.prerequisites.join("、")}`}
+          {lesson.difficulty ?? "beginner"}
+          {prerequisites.length > 0 && ` · 前置：${prerequisites.join("、")}`}
         </p>
         {objectives.length > 0 && (
           <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
@@ -71,7 +73,7 @@ export function LessonRenderer({ lesson, onCardCorrect, onCardIncorrect }: Props
           </div>
         )}
       </div>
-      {lesson.cards.map((card, index) => (
+      {cards.map((card, index) => (
         <CardRenderer
           key={index}
           card={card}
