@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getSuggestedKnowledgeNodeId } from "@/lib/learning-path/suggest-node";
 import { Octokit } from "@octokit/rest";
 
+export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 const ARXIV_CS_AI = "cs.AI";
@@ -80,6 +81,8 @@ export async function GET(request: Request) {
             topic: generated.topic,
             difficulty: generated.difficulty,
             prerequisites: generated.prerequisites,
+            learning_objectives: generated.learning_objectives ?? [],
+            pass_threshold: generated.pass_threshold ?? 0.8,
             cards: generated.cards as unknown as Record<string, unknown>[],
             source_type: "cron",
             source_id: paper.id,
@@ -120,6 +123,8 @@ export async function GET(request: Request) {
               topic: generated.topic,
               difficulty: generated.difficulty,
               prerequisites: generated.prerequisites,
+              learning_objectives: generated.learning_objectives ?? [],
+              pass_threshold: generated.pass_threshold ?? 0.8,
               cards: generated.cards as unknown as Record<string, unknown>[],
               source_type: "github",
               source_id: repo.full_name,

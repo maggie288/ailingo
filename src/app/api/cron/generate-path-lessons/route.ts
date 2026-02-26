@@ -4,6 +4,7 @@ import { generateLessonFromContent } from "@/lib/ai/generate-lesson";
 import { hasAnyAiKey } from "@/lib/ai/get-model";
 import { difficultyLevelToLabel } from "@/lib/learning-path/map";
 
+export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 function checkAuth(request: Request): boolean {
@@ -51,13 +52,16 @@ async function runGenerate(request: Request, method: string) {
   let publish = false;
   let limit: number | null = null;
   let skip = 0;
+  /** 默认 true：只给「还没有任何课时」的节点生成，避免重复。false（supplement）：给范围内所有节点各补一节 */
+  let skipNodesWithLessons = true;
 
   if (method === "POST") {
     try {
       const body = await request.json().catch(() => ({}));
       if (body.publish === true) publish = true;
       if (typeof body.limit === "number" && body.limit > 0) limit = Math.min(body.limit, 20);
-      if (typeof body.skip === "number" && body.skip >= 0) skip = Math.min(body.skip, 99);
+      if (typeof body.skip === "number" && body.skip >= 0) skip = Math.min(body.skip, 9999);
+      if (body.supplement === true) skipNodesWithLessons = false;
     } catch {
       // ignore
     }
@@ -73,8 +77,10 @@ async function runGenerate(request: Request, method: string) {
     const s = u.searchParams.get("skip");
     if (s != null) {
       const n = parseInt(s, 10);
-      if (!isNaN(n) && n >= 0) skip = Math.min(n, 99);
+      if (!isNaN(n) && n >= 0) skip = Math.min(n, 9999);
     }
+    if (u.searchParams.get("supplement") === "1" || u.searchParams.get("supplement") === "true")
+      skipNodesWithLessons = false;
   }
 
   const supabase = await createClient();
@@ -93,9 +99,25 @@ async function runGenerate(request: Request, method: string) {
 
   const from = Math.min(skip, nodes.length);
   const to = limit != null ? Math.min(from + limit, nodes.length) : nodes.length;
-  const toProcess = nodes.slice(from, to);
+  let toProcess = nodes.slice(from, to);
+
+  if (skipNodesWithLessons && toProcess.length > 0) {
+    const { data: withLessons } = await supabase
+      .from("generated_lessons")
+      .select("knowledge_node_id")
+      .not("knowledge_node_id", "is", null);
+    const nodeIdsWithLessons = new Set(
+      (withLessons ?? []).map((r: { knowledge_node_id: string }) => r.knowledge_node_id)
+    );
+    toProcess = toProcess.filter((n) => !nodeIdsWithLessons.has(n.id));
+  }
+
   if (!toProcess.length) {
-    return NextResponse.json({ message: "No nodes in range", created: 0, results: [] });
+    return NextResponse.json({
+      message: "No nodes to process (range empty or all already have lessons). Use supplement=1 to add more lessons per node.",
+      created: 0,
+      results: [],
+    });
   }
   const results: { nodeId: string; title: string; lessonId?: string; error?: string }[] = [];
 
@@ -119,6 +141,8 @@ async function runGenerate(request: Request, method: string) {
           topic: generated.topic,
           difficulty: generated.difficulty,
           prerequisites: generated.prerequisites,
+          learning_objectives: generated.learning_objectives ?? [],
+          pass_threshold: generated.pass_threshold ?? 0.8,
           cards: generated.cards as unknown as Record<string, unknown>[],
           source_type: "topic",
           source_id: null,

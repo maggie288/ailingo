@@ -6,6 +6,8 @@ import {
   type DifficultyLabel,
 } from "@/lib/learning-path/map";
 
+export const dynamic = "force-dynamic";
+
 export type PathSlot = {
   difficulty_level: number;
   node: {
@@ -20,6 +22,11 @@ export type PathSlot = {
     difficulty: string;
     type: "generated_lesson";
   }>;
+  /** 未完成前置时锁定 */
+  locked?: boolean;
+  locked_reason?: "prerequisite";
+  /** 需先完成的节点（用于提示「先完成：X」） */
+  required_nodes?: Array<{ id: string; title: string }>;
 };
 
 export type LearningPathResponse = {
@@ -33,8 +40,6 @@ export type LearningPathResponse = {
   }>;
 };
 
-export const dynamic = "force-dynamic";
-
 export async function GET() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -47,17 +52,25 @@ export async function GET() {
 
   try {
     const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    const [nodesRes, lessonsRes] = await Promise.all([
+    const [nodesRes, lessonsRes, progressRes] = await Promise.all([
       supabase
         .from("knowledge_nodes")
-        .select("id, title, description, difficulty_level, order_index, category")
+        .select("id, title, description, difficulty_level, order_index, category, prerequisites")
         .order("difficulty_level", { ascending: true })
         .order("order_index", { ascending: true }),
       supabase
         .from("generated_lessons")
         .select("id, topic, difficulty, knowledge_node_id")
         .eq("status", "published"),
+      user
+        ? supabase
+            .from("generated_lesson_progress")
+            .select("lesson_id")
+            .eq("user_id", user.id)
+            .eq("status", "completed")
+        : Promise.resolve({ data: [] as { lesson_id: string }[] }),
     ]);
 
     const nodes = (nodesRes.data ?? []) as Array<{
@@ -67,6 +80,7 @@ export async function GET() {
       difficulty_level: number;
       order_index: number;
       category: string | null;
+      prerequisites: string[] | unknown;
     }>;
 
     const lessons = (lessonsRes.data ?? []) as Array<{
@@ -76,16 +90,46 @@ export async function GET() {
       knowledge_node_id: string | null;
     }>;
 
-    const path: PathSlot[] = nodes.map((node) => ({
-      difficulty_level: node.difficulty_level,
-      node: {
-        id: node.id,
-        title: node.title,
-        description: node.description,
-        category: node.category,
-      },
-      lessons: [],
-    }));
+    const completedLessonIds = new Set((progressRes.data ?? []).map((r) => r.lesson_id));
+    const lessonToNode = new Map<string, string>();
+    for (const l of lessons) {
+      if (l.knowledge_node_id) lessonToNode.set(l.id, l.knowledge_node_id);
+    }
+    const completedNodeIds = new Set<string>();
+    Array.from(completedLessonIds).forEach((lid) => {
+      const nid = lessonToNode.get(lid);
+      if (nid) completedNodeIds.add(nid);
+    });
+
+    const nodeById = new Map(nodes.map((n) => [n.id, n]));
+    const path: PathSlot[] = nodes.map((node) => {
+      const prereqIds = Array.isArray(node.prerequisites)
+        ? (node.prerequisites as string[]).filter((id) => typeof id === "string")
+        : [];
+      const missing = prereqIds.filter((id) => !completedNodeIds.has(id));
+      const locked = missing.length > 0;
+      const required_nodes = locked
+        ? missing
+            .map((id) => {
+              const n = nodeById.get(id);
+              return n ? { id: n.id, title: n.title } : null;
+            })
+            .filter((x): x is { id: string; title: string } => x != null)
+        : undefined;
+      return {
+        difficulty_level: node.difficulty_level,
+        node: {
+          id: node.id,
+          title: node.title,
+          description: node.description,
+          category: node.category,
+        },
+        lessons: [] as PathSlot["lessons"],
+        locked: locked || undefined,
+        locked_reason: locked ? "prerequisite" : undefined,
+        required_nodes,
+      };
+    });
 
     const nodeIdToSlotIndex = new Map(nodes.map((n, i) => [n.id, i]));
 

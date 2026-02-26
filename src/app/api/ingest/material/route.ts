@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+export const dynamic = "force-dynamic";
+
 const MAX_EXTRACT_LENGTH = 100_000;
 
 async function extractPdfText(file: File): Promise<string | null> {

@@ -50,6 +50,12 @@ export const generatedLessonOutputSchema = z.object({
   topic: z.string().describe("课程主题，如 Attention Mechanism"),
   difficulty: difficultyEnum,
   prerequisites: z.array(z.string()).describe("前置知识名称列表"),
+  learning_objectives: z
+    .array(z.string())
+    .min(1)
+    .max(3)
+    .describe("本节学习目标，每条可被本节练习检验，如「能解释 Attention 的缩放因子作用」"),
+  pass_threshold: z.number().min(0).max(1).optional().default(0.8),
   cards: z
     .array(lessonCardSchema)
     .min(2)
@@ -130,6 +136,8 @@ export const generatedLessonOutputSchemaRelaxed = z.object({
   topic: z.string().default(""),
   difficulty: coercedDifficulty,
   prerequisites: z.array(z.string()).default([]),
+  learning_objectives: z.array(z.string()).optional().default([]),
+  pass_threshold: z.union([z.number(), z.string()]).optional(),
   cards: z.array(relaxedLessonCardSchema).default([]),
 });
 export type GeneratedLessonOutputRelaxed = z.infer<typeof generatedLessonOutputSchemaRelaxed>;

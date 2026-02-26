@@ -49,6 +49,8 @@ export default function GenerateCoursePage() {
         topic: data.topic,
         difficulty: data.difficulty,
         prerequisites: data.prerequisites ?? [],
+        learning_objectives: data.learning_objectives?.length ? data.learning_objectives : [data.topic ? `理解并掌握：${data.topic}` : "完成本节练习"],
+        pass_threshold: typeof data.pass_threshold === "number" ? data.pass_threshold : 0.8,
         cards: data.cards ?? [],
       });
       setInput("");

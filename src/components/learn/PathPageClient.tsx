@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { BookOpen, ChevronRight } from "lucide-react";
+import { BookOpen, ChevronRight, Lock } from "lucide-react";
 
 type PathSlot = {
   difficulty_level: number;
@@ -18,6 +18,9 @@ type PathSlot = {
     difficulty: string;
     type: "generated_lesson";
   }>;
+  locked?: boolean;
+  locked_reason?: string;
+  required_nodes?: Array<{ id: string; title: string }>;
 };
 
 type LearningPathResponse = {
@@ -90,35 +93,57 @@ export function PathPageClient() {
         {path.map((slot, idx) => (
           <section
             key={slot.node.id}
-            className="rounded-card border border-border bg-card p-4 shadow-card"
+            className={`rounded-card border p-4 shadow-card ${
+              slot.locked ? "border-amber-500/50 bg-muted/30" : "border-border bg-card"
+            }`}
           >
             <div className="flex items-center gap-2 mb-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-primary text-sm font-bold">
-                {idx + 1}
-              </span>
+              {slot.locked ? (
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                  <Lock className="w-4 h-4" />
+                </span>
+              ) : (
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/20 text-primary text-sm font-bold">
+                  {idx + 1}
+                </span>
+              )}
               <h2 className="font-bold text-foreground">{slot.node.title}</h2>
             </div>
+            {slot.locked && slot.required_nodes && slot.required_nodes.length > 0 && (
+              <p className="text-sm text-amber-700 dark:text-amber-400 mb-2">
+                先完成：{slot.required_nodes.map((n) => n.title).join("、")}
+              </p>
+            )}
             {slot.node.description && (
               <p className="text-sm text-muted mb-3">{slot.node.description}</p>
             )}
             <ul className="space-y-1">
               {slot.lessons.map((lesson) => (
                 <li key={lesson.id}>
-                  <Link
-                    href={`/learn/ai/${lesson.id}`}
-                    className="flex items-center justify-between gap-2 py-2 px-3 rounded-lg hover:bg-muted/50"
-                  >
-                    <span className="flex items-center gap-2">
-                      <BookOpen className="w-4 h-4 text-knowledge shrink-0" />
-                      <span className={completedIds.has(lesson.id) ? "text-muted line-through" : ""}>
-                        {lesson.topic}
+                  {slot.locked ? (
+                    <span className="flex items-center justify-between gap-2 py-2 px-3 rounded-lg bg-muted/50 text-muted cursor-not-allowed">
+                      <span className="flex items-center gap-2">
+                        <BookOpen className="w-4 h-4 text-muted shrink-0" />
+                        <span>{lesson.topic}</span>
                       </span>
-                      {completedIds.has(lesson.id) && (
-                        <span className="text-xs text-primary">已完成</span>
-                      )}
                     </span>
-                    <ChevronRight className="w-4 h-4 text-muted shrink-0" />
-                  </Link>
+                  ) : (
+                    <Link
+                      href={`/learn/ai/${lesson.id}`}
+                      className="flex items-center justify-between gap-2 py-2 px-3 rounded-lg hover:bg-muted/50"
+                    >
+                      <span className="flex items-center gap-2">
+                        <BookOpen className="w-4 h-4 text-knowledge shrink-0" />
+                        <span className={completedIds.has(lesson.id) ? "text-muted line-through" : ""}>
+                          {lesson.topic}
+                        </span>
+                        {completedIds.has(lesson.id) && (
+                          <span className="text-xs text-primary">已完成</span>
+                        )}
+                      </span>
+                      <ChevronRight className="w-4 h-4 text-muted shrink-0" />
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>

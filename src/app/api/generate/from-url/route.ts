@@ -3,6 +3,7 @@ import { generateLessonFromContent } from "@/lib/ai/generate-lesson";
 import { createClient } from "@/lib/supabase/server";
 import { getSuggestedKnowledgeNodeId } from "@/lib/learning-path/suggest-node";
 
+export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 async function fetchTextFromUrl(url: string): Promise<string> {
@@ -72,6 +73,8 @@ export async function POST(request: Request) {
           topic: generated.topic,
           difficulty: generated.difficulty,
           prerequisites: generated.prerequisites,
+          learning_objectives: generated.learning_objectives ?? [],
+          pass_threshold: generated.pass_threshold ?? 0.8,
           cards: generated.cards as unknown as Record<string, unknown>[],
           source_type: "url",
           source_url: url,
@@ -89,6 +92,8 @@ export async function POST(request: Request) {
       topic: generated.topic,
       difficulty: generated.difficulty,
       prerequisites: generated.prerequisites,
+      learning_objectives: generated.learning_objectives ?? [],
+      pass_threshold: generated.pass_threshold ?? 0.8,
       cards: generated.cards,
       saved: !!lessonId,
     });

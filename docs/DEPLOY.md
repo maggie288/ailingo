@@ -200,14 +200,196 @@ Key 来自 **minimaxi.com** 时，在 Vercel 按下面配（每项保存后都�
 3. **到管理后台审核**  
    打开 `https://你的域名/admin`，用 `ADMIN_EMAILS` 里邮箱登录，在「课时」里查看/发布。
 
+### 1000 节课程：从种子到分批生成并发布
+
+若要设计「AI 大模型入门到资深」系统课，约 **1000 节课**，可按下述流程一次分批生成并直接发布到正式环境。
+
+1. **在 Supabase 执行 1000 节点种子**  
+   - 打开 **Supabase Dashboard → SQL Editor**。  
+   - 若要做**全新 1000 节**、且库里已有旧节点/旧课时，先执行（会清空已有课时与节点）：
+     ```sql
+     DELETE FROM public.generated_lesson_progress;
+     DELETE FROM public.generated_lessons;
+     DELETE FROM public.knowledge_nodes;
+     ```
+   - 再打开项目里的 **`supabase/seeds/curriculum_ai_1000.sql`**，复制全部内容到 SQL Editor，点击 **Run**。会插入 1000 个知识节点（10 个阶段 × 每阶段 100 节，难度 1～10 递增）。
+
+2. **本地分批生成并发布**（推荐，无 Vercel 60s 超时）  
+   - 在项目根目录执行 `npm run dev`，保持运行。  
+   - 新开终端，执行（把 `你的CRON_SECRET` 换成 `.env.local` 里的值）：
+     ```bash
+     chmod +x scripts/batch-generate-path-lessons.sh
+     CRON_SECRET=你的CRON_SECRET ./scripts/batch-generate-path-lessons.sh
+     ```
+   - 脚本会按节点顺序从第 1 节生成到第 1000 节，每节请求间隔 2 秒，并**直接发布**（`publish: true`）。  
+   - 若中途中断，可从断点续跑，例如从第 501 节开始：  
+     `START_FROM=500 CRON_SECRET=你的CRON_SECRET ./scripts/batch-generate-path-lessons.sh`  
+   - 环境变量（可选）：`TOTAL=1000`（总节数）、`BASE_URL=http://localhost:3000`、`SLEEP=2`（间隔秒数）。
+
+3. **结果**  
+   - 生成结果写入当前环境连接的 Supabase（即 `.env.local` 中的 Supabase），若与生产共用同一 Supabase 项目，则线上站点会直接看到已发布的 1000 节课。  
+   - 到 **管理后台**（`/admin`）可查看、筛选或下架部分课时。
+
+### 持续补充与更新（不删历史）
+
+系统默认**只增不删**：不会因为「再次生成」而清空或覆盖已有课程。
+
+1. **按节点批量生成**  
+   - 再次调用 `generate-path-lessons` 时，**只会给「还没有任何课时」的节点生成**，已有课时的节点会被跳过，不会重复或覆盖。  
+   - 若希望给某一段节点**各多补一节**（同一章节下多节微课），传 **`supplement=1`**（或 body `"supplement": true`），例如：  
+     `curl ... -d '{"limit":10,"skip":0,"supplement":true,"publish":true}'`
+
+2. **上传资料 → 自动新增节点 + 课时**  
+   - 在 **学习/上传** 页上传 PDF/文本/图片后，资料会进入「我的资料」。  
+   - 调用 **`POST /api/generate/from-material`**，Body：`{ "material_id": "资料 UUID" }`（需登录）。  
+   - 会为该资料 **新增 1 个知识节点** 并生成 1 节微课挂到该节点下，写入 `generated_lessons`（source_type=material），**不删、不改已有节点与课时**。
+
+3. **关联网站 → 新增课时**  
+   - 使用 **从 URL 生成**（或调用 `POST /api/generate/from-url`，Body：`{ "url": "https://..." }`）。  
+   - 会生成 1 节微课并挂到**推荐的知识节点**下（或可扩展为为该 URL 单独建节点），同样是新增，不删历史。
+
+4. **管理后台新增章节/节点**  
+   - 管理员在 **`/admin`** 可维护知识节点；调用 **`POST /api/admin/knowledge-nodes`**，Body：`{ "title": "新章节名", "description": "...", "difficulty_level": 5 }` 可**新增**知识节点。  
+   - 新增后，用上面的批量生成（不传 supplement）会只给「还没有课时」的新节点生成；或传 `supplement=1` 给指定范围节点补课。
+
+5. **全新清空再建（仅当确实需要时）**  
+   - 仅在需要「从零重建 1000 节」时，在 Supabase SQL Editor 中**先**执行：  
+     `DELETE FROM public.generated_lesson_progress; DELETE FROM public.generated_lessons; DELETE FROM public.knowledge_nodes;`  
+   - 再执行种子 `curriculum_ai_1000.sql`。日常补充**不要**执行上述 DELETE。
+
+### 操作清单：持续补充（按顺序做一遍）
+
+按下面步骤做一次，之后就可以随时「只增不删」地补充课程。
+
+---
+
+**步骤一：在 Supabase 执行新迁移（支持「上传资料」生成）**
+
+1. 打开 [Supabase](https://supabase.com) → 你的项目 → 左侧 **SQL Editor** → **New query**。
+2. 二选一：
+   - **若你从没跑过完整迁移**：打开项目里的 **`supabase/migrations/run-all-in-order.sql`**，复制**全部内容**到 SQL Editor，点击 **Run**（会建表 + 含 `source_type=material`）。
+   - **若你已跑过 run-all-in-order，只是要加 material**：在 SQL Editor 里只执行下面这一段，点 **Run**：
+     ```sql
+     ALTER TABLE public.generated_lessons DROP CONSTRAINT IF EXISTS generated_lessons_source_type_check;
+     ALTER TABLE public.generated_lessons
+       ADD CONSTRAINT generated_lessons_source_type_check
+       CHECK (source_type IN ('arxiv', 'github', 'url', 'cron', 'topic', 'material'));
+     ```
+
+---
+
+**步骤二：再次跑批量生成（只会给「还没有课时」的节点生成）**
+
+- 本地先 `npm run dev`，再新开终端执行（把 `你的CRON_SECRET` 换成 `.env.local` 里的值）：
+  ```bash
+  CRON_SECRET=你的CRON_SECRET ./scripts/batch-generate-path-lessons.sh
+  ```
+- 已有课时的节点会被**自动跳过**，只给还没有课时的节点生成，不会覆盖历史。
+
+---
+
+**步骤三：给某段节点各多补一节（可选）**
+
+- 例如给前 20 个节点各再生成一节，本地执行：
+  ```bash
+  curl -X POST "http://localhost:3000/api/cron/generate-path-lessons" \
+    -H "Authorization: Bearer 你的CRON_SECRET" \
+    -H "Content-Type: application/json" \
+    -d '{"limit":20,"skip":0,"supplement":true,"publish":true}'
+  ```
+- 或用脚本给前 100 个节点各补一节：
+  ```bash
+  TOTAL=100 SUPPLEMENT=1 CRON_SECRET=你的CRON_SECRET ./scripts/batch-generate-path-lessons.sh
+  ```
+
+---
+
+**步骤四：上传资料后，用资料生成新节点 + 新课时**
+
+1. 在站点 **学习 → 上传** 页上传 PDF/文本/图片，等状态变为「已提取」。
+2. 在浏览器或接口工具里拿到该资料的 **id**（上传接口返回的 `id`，或从「我的资料」列表取）。
+3. 带登录态请求（Cookie 或同源页面用 fetch）：
+  ```bash
+  curl -X POST "http://localhost:3000/api/generate/from-material" \
+    -H "Content-Type: application/json" \
+    -H "Cookie: 你的登录 Cookie（从浏览器开发者工具复制）" \
+    -d '{"material_id":"这里填资料的 UUID"}'
+  ```
+  或在**已登录**的前端页面里用 `fetch("/api/generate/from-material", { method: "POST", body: JSON.stringify({ material_id: "资料UUID" }) })`。
+4. 返回里会有 `lesson_id`、`knowledge_node_id`，即新增的 1 个节点 + 1 节课时，不会动已有课程。
+
+---
+
+**步骤五：从 URL 生成一节并挂到路径（关联网站）**
+
+- 本地或服务端请求（无需 CRON_SECRET，若需登录则带 Cookie）：
+  ```bash
+  curl -X POST "http://localhost:3000/api/generate/from-url" \
+    -H "Content-Type: application/json" \
+    -d '{"url":"https://你想关联的网页地址"}'
+  ```
+- 会生成 1 节微课并挂到推荐的知识节点下，只增不改。
+
+---
+
+**步骤六：管理后台新增知识节点（持续扩展章节）**
+
+- 用 **ADMIN_EMAILS** 里邮箱登录后，请求（需带登录 Cookie 或同源）：
+  ```bash
+  curl -X POST "http://localhost:3000/api/admin/knowledge-nodes" \
+    -H "Content-Type: application/json" \
+    -H "Cookie: 你的登录 Cookie" \
+    -d '{"title":"新章节名称","description":"可选描述","difficulty_level":5}'
+  ```
+- 新增后，再跑**步骤二**的批量脚本，只会给这些「还没有课时」的新节点生成；或对指定范围用 **步骤三** 的 `supplement=1` 补节。
+
+---
+
+以上做完后：**随时再跑批量生成**只会补空节点，**supplement=1** 只补节，**from-material / from-url / 管理后台新增节点**都是新增，**都不会删或覆盖历史课程**。
+
 ### 接口说明（供查阅）
 
 - **接口**：`POST` 或 `GET` **`/api/cron/generate-path-lessons`**
 - 若配置了 `CRON_SECRET`，请求头必须带：`Authorization: Bearer <CRON_SECRET>`。
-- **POST** Body 可选：`{ "publish": true }` 直接发布；`{ "limit": 5 }` 仅处理前 5 个节点；`{ "skip": 2 }` 从第 3 个节点开始（配合 limit=1 可逐节生成）。
-- **GET** 可选 query：`?publish=1`、`?limit=5`、`?skip=0`。
-- **行为**：按 `knowledge_nodes` 顺序，为每个节点调用 AI 生成一节完整微课，写入 `generated_lessons`。
-- **注意**：单节约 30–60 秒；Vercel 免费/Hobby 约 60s 超时，一次多节会 **Connection reset by peer**，请用 **limit=1** 并多次调用（见上方「全量 10 节」循环示例）。
+- **POST** Body 可选：`{ "publish": true }` 直接发布；`{ "limit": 5 }` 仅处理前 5 个节点；`{ "skip": 2 }` 从第 3 个节点开始；`{ "supplement": true }` 给范围内节点各补一节（不跳过已有课时的节点）。
+- **GET** 可选 query：`?publish=1`、`?limit=5`、`?skip=0`、`?supplement=1`。
+- **行为**：按 `knowledge_nodes` 顺序处理；**默认只给「还没有任何课时」的节点生成**（重复跑不会覆盖或删历史）。传 `supplement=1` 时给范围内每个节点再生成一节。
+- **注意**：单节约 30–60 秒；Vercel 免费/Hobby 约 60s 超时，请用 **limit=1** 并多次调用或本地跑脚本。
+
+### 若总是 Connection reset by peer（Vercel 超时）
+
+单节生成若超过约 60 秒（例如 MiniMax 较慢），Vercel 会断开连接。**推荐在本地跑生成**，没有时间限制：
+
+1. 在项目目录执行：`npm run dev`，保持运行。
+2. 新开一个终端，把下面的 `http://localhost:3000` 和 `你的CRON_SECRET` 换成实际值后执行：
+   ```bash
+   # 单节测试
+   curl -X POST "http://localhost:3000/api/cron/generate-path-lessons" \
+     -H "Authorization: Bearer 你的CRON_SECRET" \
+     -H "Content-Type: application/json" \
+     -d '{"limit":1}'
+   ```
+3. 若返回 `"created":1`，可继续全量生成（同样对 localhost 发请求）：
+   ```bash
+   for i in 0 1 2 3 4 5 6 7 8 9; do
+     curl -s -X POST "http://localhost:3000/api/cron/generate-path-lessons" \
+       -H "Authorization: Bearer 你的CRON_SECRET" \
+       -H "Content-Type: application/json" \
+       -d "{\"limit\":1,\"skip\":$i,\"publish\":true}"
+     echo ""
+     sleep 2
+   done
+   ```
+4. 本地需能连上 Supabase 和 MiniMax：复制 `.env.example` 为 `.env.local`，填好 `NEXT_PUBLIC_SUPABASE_URL`、`NEXT_PUBLIC_SUPABASE_ANON_KEY`、`MINIMAX_API_KEY` 等。生成结果会写入你的 Supabase，线上站点可直接使用。
+
+### 若返回 "404 Page not found"
+
+说明请求打到了 MiniMax，但**路径不对**。国内版 **minimaxi.com** 一般只开放 OpenAI 兼容接口，需同时满足：
+
+- `MINIMAX_BASE_URL=https://api.minimaxi.com/v1`
+- **`MINIMAX_USE_OPENAI=1`**（必须设为 1，否则会走 Anthropic 路径导致 404）
+
+在 `.env.local` 或 Vercel 环境变量里加上/改为上述两项，保存后重启本地 dev 或 Redeploy 再试。
 
 ### 若返回 "invalid api key"
 

@@ -48,6 +48,9 @@ function CardRenderer({
 }
 
 export function LessonRenderer({ lesson, onCardCorrect, onCardIncorrect }: Props) {
+  const objectives = lesson.learning_objectives?.length
+    ? lesson.learning_objectives
+    : [];
   return (
     <div className="space-y-4">
       <div className="mb-4">
@@ -57,6 +60,16 @@ export function LessonRenderer({ lesson, onCardCorrect, onCardIncorrect }: Props
           {lesson.prerequisites.length > 0 &&
             ` · 前置：${lesson.prerequisites.join("、")}`}
         </p>
+        {objectives.length > 0 && (
+          <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3">
+            <p className="text-xs font-medium text-primary mb-1">本节你将学会</p>
+            <ul className="text-sm text-foreground list-disc list-inside space-y-0.5">
+              {objectives.map((obj, i) => (
+                <li key={i}>{obj}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
       {lesson.cards.map((card, index) => (
         <CardRenderer

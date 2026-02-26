@@ -44,6 +44,10 @@ export type GeneratedLessonJSON = {
   topic: string;
   difficulty: "beginner" | "intermediate" | "advanced";
   prerequisites: string[];
+  /** 本节学习目标，1～3 条，可被练习检验 */
+  learning_objectives: string[];
+  /** 通过标准 0～1，默认 0.8 */
+  pass_threshold: number;
   cards: LessonCard[];
 };
 
@@ -52,6 +56,8 @@ export type GeneratedLessonRow = {
   topic: string;
   difficulty: string;
   prerequisites: string[];
+  learning_objectives: string[];
+  pass_threshold: number;
   cards: LessonCard[];
   source_type: string | null;
   source_id: string | null;
