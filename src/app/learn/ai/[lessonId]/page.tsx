@@ -29,18 +29,32 @@ function rowToLesson(data: Record<string, unknown>): GeneratedLessonJSON {
 }
 
 /** 服务端直接查 Supabase，不依赖 NEXT_PUBLIC_APP_URL 自请求 API */
-async function fetchLessonFromDb(lessonId: string): Promise<GeneratedLessonJSON | null> {
+async function fetchLessonFromDb(lessonId: string): Promise<{ lesson: GeneratedLessonJSON; nextLessonId: string | null } | null> {
   if (!lessonId || typeof lessonId !== "string") return null;
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
       .from("generated_lessons")
-      .select("id, topic, difficulty, prerequisites, cards, status, learning_objectives, pass_threshold")
+      .select("id, topic, difficulty, prerequisites, cards, status, learning_objectives, pass_threshold, user_course_id, created_at")
       .eq("id", lessonId)
       .single();
     if (error || !data) return null;
     if ((data as { status?: string }).status !== "published" && (data as { status?: string }).status !== "draft") return null;
-    return rowToLesson(data as Record<string, unknown>);
+    const lesson = rowToLesson(data as Record<string, unknown>);
+    const userCourseId = (data as { user_course_id?: string | null }).user_course_id;
+    let nextLessonId: string | null = null;
+    if (userCourseId) {
+      const { data: list } = await supabase
+        .from("generated_lessons")
+        .select("id")
+        .eq("user_course_id", userCourseId)
+        .in("status", ["published", "draft"])
+        .order("created_at", { ascending: true });
+      const ids = (list ?? []).map((r) => (r as { id: string }).id);
+      const idx = ids.indexOf(lessonId);
+      if (idx >= 0 && idx < ids.length - 1) nextLessonId = ids[idx + 1];
+    }
+    return { lesson, nextLessonId };
   } catch {
     return null;
   }
@@ -52,8 +66,9 @@ export default async function AIGeneratedLessonPage({ params }: Props) {
     const lessonId = typeof p?.lessonId === "string" ? p.lessonId : "";
     if (!lessonId) notFound();
 
-    const lesson = await fetchLessonFromDb(lessonId);
-    if (!lesson) notFound();
+    const out = await fetchLessonFromDb(lessonId);
+    if (!out) notFound();
+    const { lesson, nextLessonId } = out;
 
     return (
       <>
@@ -66,7 +81,7 @@ export default async function AIGeneratedLessonPage({ params }: Props) {
           }
         />
         <main className="p-4 pb-24">
-          <LessonRendererClient lesson={lesson} />
+          <LessonRendererClient lesson={lesson} nextLessonId={nextLessonId} />
         </main>
       </>
     );

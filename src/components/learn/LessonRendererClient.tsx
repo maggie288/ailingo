@@ -1,14 +1,16 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { LessonRenderer } from "@/components/learn/LessonRenderer";
 import type { GeneratedLessonJSON } from "@/types/generated-lesson";
 
-type Props = { lesson: GeneratedLessonJSON };
+type Props = { lesson: GeneratedLessonJSON; nextLessonId?: string | null };
 
 const SCORABLE_TYPES = ["multiple_choice", "code_gap_fill"];
 
-export function LessonRendererClient({ lesson }: Props) {
+export function LessonRendererClient({ lesson, nextLessonId }: Props) {
+  const router = useRouter();
   const cards = Array.isArray(lesson.cards) ? lesson.cards : [];
   const totalScorable = cards.filter((c) => SCORABLE_TYPES.includes((c as { type?: string }).type ?? "")).length;
   const answeredCount = useRef(0);
@@ -32,12 +34,18 @@ export function LessonRendererClient({ lesson }: Props) {
         }),
       })
         .then((r) => r.json())
-        .then((data) => {
-          setSubmitState(data.passed !== false ? "done" : "not_passed");
+        .then((_data) => {
+          if (nextLessonId) {
+            router.push(`/learn/ai/${nextLessonId}`);
+          } else {
+            setSubmitState("done");
+          }
         })
-        .catch(() => setSubmitState("done"));
+        .catch(() => {
+          setSubmitState("done");
+        });
     },
-    [lesson.lesson_id]
+    [lesson.lesson_id, nextLessonId, router]
   );
 
   const onCardResult = useCallback(
@@ -74,12 +82,14 @@ export function LessonRendererClient({ lesson }: Props) {
             onClick={onCompleteReading}
             className="rounded-button bg-primary px-6 py-3 text-base font-bold text-primary-foreground shadow-card"
           >
-            完成本节，进入闯关
+            {nextLessonId ? "完成本知识点，进入下一节" : "完成本节，进入闯关"}
           </button>
         </div>
       )}
       {submitState === "loading" && (
-        <div className="mt-6 text-center text-sm text-muted">正在记录进度…</div>
+        <div className="mt-6 text-center text-sm text-muted">
+          {nextLessonId ? "正在记录进度并跳转…" : "正在记录进度…"}
+        </div>
       )}
       {submitState === "done" && (
         <div className="mt-6 rounded-card border-2 border-primary bg-primary/10 p-4 text-center">

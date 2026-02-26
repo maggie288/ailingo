@@ -6,7 +6,7 @@ import { TopBar } from "@/components/layout/TopBar";
 import { TopBarStats } from "@/components/layout/TopBarStats";
 import { FileText } from "lucide-react";
 
-type IngestResult = { id: string; status: string; extracted_content?: string };
+type IngestResult = { id: string; status: string; extracted_content?: string; failed_reason?: string };
 type GenResult = { lesson_id: string; user_course_id: string; topic: string; status: string };
 
 export default function UploadMaterialPage() {
@@ -59,7 +59,7 @@ export default function UploadMaterialPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "上传失败");
-      const ingest: IngestResult = { id: data.id, status: data.status, extracted_content: data.extracted_content };
+      const ingest: IngestResult = { id: data.id, status: data.status, extracted_content: data.extracted_content, failed_reason: data.failed_reason };
       setResult(ingest);
       setPaste("");
       setTitle("");
@@ -90,7 +90,7 @@ export default function UploadMaterialPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "上传失败");
-      const ingest: IngestResult = { id: data.id, status: data.status, extracted_content: data.extracted_content };
+      const ingest: IngestResult = { id: data.id, status: data.status, extracted_content: data.extracted_content, failed_reason: data.failed_reason };
       setResult(ingest);
       setTitle("");
       if (fileRef.current) fileRef.current.value = "";
@@ -160,7 +160,9 @@ export default function UploadMaterialPage() {
               <p className="text-sm text-muted">内容过短（需至少 100 字），无法自动生成课程。</p>
             )}
             {result.status === "failed" && (
-              <p className="text-sm text-muted">解析失败，请换一份资料或继续上传。</p>
+              <p className="text-sm text-muted">
+                {result.failed_reason ?? "解析失败，请换一份资料或继续上传。"}
+              </p>
             )}
             <div className="flex gap-2">
               <button

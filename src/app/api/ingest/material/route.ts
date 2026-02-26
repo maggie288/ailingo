@@ -99,14 +99,26 @@ export async function POST(request: Request) {
           const text = await file.text();
           extractedContent = text.slice(0, MAX_EXTRACT_LENGTH);
           status = "extracted";
-        } else if (type === "application/pdf" || name.toLowerCase().endsWith(".pdf")) {
+        let failedReason: string | undefined;
+        if (type === "application/pdf" || name.toLowerCase().endsWith(".pdf")) {
           status = "processing";
           extractedContent = await extractPdfText(file);
-          status = extractedContent ? "extracted" : "failed";
+          if (!extractedContent) {
+            status = "failed";
+            failedReason = "PDF 解析失败，请换一个文件或直接粘贴文本内容。";
+          }
         } else if (IMAGE_TYPES.includes(type) || /\.(png|jpe?g|webp)$/i.test(name)) {
           status = "processing";
-          extractedContent = await extractImageText(file);
-          status = extractedContent ? "extracted" : "failed";
+          if (!process.env.OPENAI_API_KEY?.trim()) {
+            status = "failed";
+            failedReason = "图片解析需要配置 OPENAI_API_KEY（当前仅支持 OpenAI 视觉模型），或请改为粘贴文字/上传 PDF、TXT、MD。";
+          } else {
+            extractedContent = await extractImageText(file);
+            if (!extractedContent) {
+              status = "failed";
+              failedReason = "图片内容提取失败，请换一张图或改为粘贴文字。";
+            }
+          }
         } else {
           status = "pending";
           extractedContent = null;
@@ -134,6 +146,7 @@ export async function POST(request: Request) {
           id: row.id,
           status: row.status,
           extracted_content: status === "extracted" ? row.extracted_content : undefined,
+          failed_reason: failedReason,
         });
       }
     }
