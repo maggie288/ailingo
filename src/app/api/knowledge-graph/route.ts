@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -28,14 +28,13 @@ export type KnowledgeGraphResponse = {
 };
 
 export async function GET() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseKey) {
-    return NextResponse.json({ nodes: [], edges: [] } as KnowledgeGraphResponse);
-  }
-
   try {
-    const supabase = await createClient();
+    let supabase;
+    try {
+      supabase = createServiceRoleClient();
+    } catch {
+      supabase = await createClient();
+    }
     const { data: rows, error } = await supabase
       .from("knowledge_nodes")
       .select("id, title, description, difficulty_level, order_index, category, parent_id, concept_name, prerequisites, resources")
@@ -43,6 +42,7 @@ export async function GET() {
       .order("order_index", { ascending: true });
 
     if (error) {
+      console.error("knowledge-graph:", error.message);
       return NextResponse.json({ nodes: [], edges: [] } as KnowledgeGraphResponse);
     }
 
@@ -75,7 +75,8 @@ export async function GET() {
     }
 
     return NextResponse.json({ nodes, edges } as KnowledgeGraphResponse);
-  } catch {
+  } catch (e) {
+    console.error("knowledge-graph:", e);
     return NextResponse.json({ nodes: [], edges: [] } as KnowledgeGraphResponse);
   }
 }

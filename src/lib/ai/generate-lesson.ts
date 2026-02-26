@@ -1,6 +1,6 @@
 import { generateText } from "ai";
 import { Output } from "ai";
-import { getModelForLesson } from "./get-model";
+import { getModelForLesson, getModelForLessonAsync } from "./get-model";
 import {
   generatedLessonOutputSchema,
   generatedLessonOutputSchemaRelaxed,
@@ -60,11 +60,14 @@ export type GenerateLessonInput = {
   title?: string;
   abstractOrContent: string;
   url?: string;
+  /** 使用更快模型（论文/URL 异步任务），便于在 60s 内完成 */
+  useFastModel?: boolean;
 };
 
 export async function generateLessonFromContent(
   input: GenerateLessonInput
 ): Promise<GeneratedLessonOutput> {
+  const model = input.useFastModel ? getModelForLessonAsync() : getModelForLesson();
   const prompt =
     input.sourceType === "arxiv"
       ? `根据以下 ArXiv 论文的标题和摘要，生成一节游戏化微课。\n\n标题：${input.title ?? "无"}\n\n摘要：\n${input.abstractOrContent}`
@@ -74,13 +77,14 @@ export async function generateLessonFromContent(
 
   try {
     const result = await generateText({
-      model: getModelForLesson(),
+      model,
       system: SYSTEM_PROMPT,
       prompt,
       output: Output.object({
         schema: generatedLessonOutputSchema,
       }),
       maxRetries: 1,
+      maxOutputTokens: 4096,
     });
 
     const parsed = generatedLessonOutputSchema.safeParse(result.output);
@@ -91,10 +95,11 @@ export async function generateLessonFromContent(
   }
 
   const rawResult = await generateText({
-    model: getModelForLesson(),
+    model,
     system: SYSTEM_PROMPT + "\n只输出一个 JSON 对象，不要用 markdown 代码块包裹。",
     prompt,
     maxRetries: 1,
+    maxOutputTokens: 4096,
   });
   const rawText = rawResult.text ?? "";
   const jsonStr = extractJsonFromText(rawText);

@@ -15,11 +15,15 @@ export default function GenerateCoursePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lesson, setLesson] = useState<GeneratedLessonJSON | null>(null);
+  const [batchProgress, setBatchProgress] = useState<{ done: number; total: number } | null>(null);
+  const [courseCreated, setCourseCreated] = useState<{ userCourseId: string; lessonCount: number } | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLesson(null);
+    setBatchProgress(null);
+    setCourseCreated(null);
     const value = input.trim();
     if (!value) return;
 
@@ -69,30 +73,59 @@ export default function GenerateCoursePage() {
 
       const pollInterval = 2000;
       const maxPolls = 90;
+      const timeoutMarkMs = 85000;
+      const start = Date.now();
+      let markedTimeout = false;
+      let lastTriggeredForBatchesDone = -1;
       for (let i = 0; i < maxPolls; i++) {
         await new Promise((r) => setTimeout(r, i === 0 ? 1500 : pollInterval));
+        if (!markedTimeout && Date.now() - start >= timeoutMarkMs) {
+          markedTimeout = true;
+          fetch(`/api/generate/job/${jobId}/mark-timeout`, { method: "POST" }).catch(() => {});
+        }
         const jobRes = await fetch(`/api/generate/job/${jobId}`);
-        const job: { status: string; result?: Record<string, unknown>; error?: string } = await jobRes.json();
+        const job: {
+          status: string;
+          result?: Record<string, unknown>;
+          error?: string;
+          batches_total?: number;
+          batches_done?: number;
+        } = await jobRes.json();
+        const total = job.batches_total ?? 0;
+        const done = job.batches_done ?? 0;
+        if (total > 0) setBatchProgress({ done, total });
+        if (job.status === "processing" && total > 0 && done < total && done !== lastTriggeredForBatchesDone) {
+          lastTriggeredForBatchesDone = done;
+          fetch(`/api/generate/job/${jobId}/process`, { method: "POST" }).catch(() => {});
+        }
         if (job.status === "completed" && job.result) {
           const r = job.result;
-          setLesson({
-            lesson_id: (r.lesson_id as string) ?? "",
-            topic: (r.topic as string) ?? "",
-            difficulty: (["beginner", "intermediate", "advanced"].includes(r.difficulty as string) ? r.difficulty : "intermediate") as "beginner" | "intermediate" | "advanced",
-            prerequisites: Array.isArray(r.prerequisites) ? (r.prerequisites as string[]) : [],
-            learning_objectives: Array.isArray(r.learning_objectives) ? (r.learning_objectives as string[]) : [],
-            pass_threshold: typeof r.pass_threshold === "number" ? r.pass_threshold : 0.8,
-            cards: Array.isArray(r.cards) ? r.cards : [],
-          });
-          setInput("");
-          return;
+          const lessonIds = Array.isArray(r.lesson_ids) ? (r.lesson_ids as string[]) : [];
+          if (lessonIds.length > 0 && r.user_course_id) {
+            setCourseCreated({ userCourseId: r.user_course_id as string, lessonCount: lessonIds.length });
+            setInput("");
+            return;
+          }
+          if (Array.isArray(r.cards) && r.cards.length > 0) {
+            setLesson({
+              lesson_id: (r.lesson_id as string) ?? "",
+              topic: (r.topic as string) ?? "",
+              difficulty: (["beginner", "intermediate", "advanced"].includes(r.difficulty as string) ? r.difficulty : "intermediate") as "beginner" | "intermediate" | "advanced",
+              prerequisites: Array.isArray(r.prerequisites) ? (r.prerequisites as string[]) : [],
+              learning_objectives: Array.isArray(r.learning_objectives) ? (r.learning_objectives as string[]) : [],
+              pass_threshold: typeof r.pass_threshold === "number" ? r.pass_threshold : 0.8,
+              cards: Array.isArray(r.cards) ? r.cards : [],
+            });
+            setInput("");
+            return;
+          }
         }
         if (job.status === "failed") {
           setError(job.error ?? "生成失败");
           return;
         }
       }
-      setError("生成超时，请到「学习 → 我的生成课程」查看是否已生成。");
+      setError("生成超时，请重试或到「学习 → 我的生成课程」查看。");
     } catch (err) {
       setError(err instanceof Error ? err.message : "生成失败");
     } finally {
@@ -172,13 +205,37 @@ export default function GenerateCoursePage() {
                 disabled={loading}
                 className="w-full h-12 rounded-button bg-primary text-white font-bold border-b-4 border-primary-dark btn-press disabled:opacity-50"
               >
-                {loading ? "生成中…" : "生成课程"}
+                {loading
+                  ? batchProgress && batchProgress.total > 0
+                    ? `已生成 ${batchProgress.done}/${batchProgress.total} 节…`
+                    : "生成中…"
+                  : "生成课程"}
               </button>
             </form>
             {error && (
               <p className="mt-3 text-error text-sm">{error}</p>
             )}
           </>
+        ) : courseCreated ? (
+          <div className="rounded-card border border-border bg-card p-6 text-center">
+            <p className="text-foreground font-medium mb-2">已生成 {courseCreated.lessonCount} 节</p>
+            <p className="text-muted text-sm mb-4">已保存到「我的生成课程」，可进入课程逐节学习。</p>
+            <div className="flex flex-wrap justify-center gap-3">
+              <Link
+                href={`/learn/my/${courseCreated.userCourseId}`}
+                className="rounded-button bg-primary text-white font-bold px-6 py-3"
+              >
+                进入课程
+              </Link>
+              <button
+                type="button"
+                onClick={() => setCourseCreated(null)}
+                className="rounded-button border border-border px-6 py-3 text-foreground"
+              >
+                再生成
+              </button>
+            </div>
+          </div>
         ) : (
           <>
             <div className="flex justify-end gap-2 mb-4">

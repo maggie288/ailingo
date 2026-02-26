@@ -20,7 +20,7 @@ export async function POST(
 
     const { data: job, error: fetchErr } = await supabase
       .from("generation_jobs")
-      .select("id, user_id, status")
+      .select("id, user_id, status, type, batches_total, batches_done")
       .eq("id", jobId)
       .eq("user_id", user.id)
       .single();
@@ -28,12 +28,26 @@ export async function POST(
     if (fetchErr || !job) {
       return NextResponse.json({ error: "任务不存在或无权执行" }, { status: 404 });
     }
-    if (job.status !== "pending") {
+    const canRunNextBatch =
+      job.status === "processing" &&
+      (job.batches_total ?? 0) > 0 &&
+      (job.batches_done ?? 0) < (job.batches_total ?? 0);
+    if (job.status !== "pending" && !canRunNextBatch) {
       return NextResponse.json({ status: job.status, message: "任务已处理或进行中" });
     }
 
     await runGenerationJob(jobId);
-    return NextResponse.json({ status: "completed", jobId });
+    const { data: updated } = await supabase
+      .from("generation_jobs")
+      .select("status, batches_done, batches_total")
+      .eq("id", jobId)
+      .single();
+    return NextResponse.json({
+      status: updated?.status ?? "processing",
+      jobId,
+      batches_done: updated?.batches_done ?? 0,
+      batches_total: updated?.batches_total ?? 0,
+    });
   } catch (err) {
     console.error("POST generate/job/[id]/process:", err);
     return NextResponse.json(

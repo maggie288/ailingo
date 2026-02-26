@@ -50,6 +50,13 @@ export function getModelForLesson(): LanguageModelV3 {
   throw new Error("Set MINIMAX_API_KEY or OPENAI_API_KEY for AI course generation.");
 }
 
+/** 用于论文/URL 异步生成：更快模型，便于在 Vercel 60s 内完成，仍输出完整课时 */
+export function getModelForLessonAsync(): LanguageModelV3 {
+  if (isMiniMaxPreferred()) return getMinimaxModel(MINIMAX_LIGHT);
+  if (process.env.OPENAI_API_KEY?.trim()) return openai("gpt-4o-mini");
+  throw new Error("Set MINIMAX_API_KEY or OPENAI_API_KEY for AI course generation.");
+}
+
 /** 用于概念提取、题目生成等轻量任务 */
 export function getModelForExtract(): LanguageModelV3 {
   if (isMiniMaxPreferred()) return getMinimaxModel(MINIMAX_LIGHT);

@@ -310,3 +310,9 @@ ALTER TABLE public.generation_jobs ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can read own generation_jobs" ON public.generation_jobs FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own generation_jobs" ON public.generation_jobs FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update own generation_jobs" ON public.generation_jobs FOR UPDATE USING (auth.uid() = user_id);
+
+-- ---------- 14. 20250227200000_generation_jobs_pdf_batches.sql ----------
+ALTER TABLE public.generation_jobs
+  ADD COLUMN IF NOT EXISTS batches_total INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS batches_done INT NOT NULL DEFAULT 0,
+  ADD COLUMN IF NOT EXISTS cached_chunks JSONB;

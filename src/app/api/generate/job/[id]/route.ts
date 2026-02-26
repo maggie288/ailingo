@@ -18,7 +18,7 @@ export async function GET(
 
     const { data: job, error } = await supabase
       .from("generation_jobs")
-      .select("id, type, status, result, error, created_at, updated_at")
+      .select("id, type, status, result, error, created_at, updated_at, batches_total, batches_done")
       .eq("id", jobId)
       .eq("user_id", user.id)
       .single();
@@ -35,6 +35,8 @@ export async function GET(
       error: job.error ?? null,
       created_at: job.created_at,
       updated_at: job.updated_at,
+      batches_total: job.batches_total ?? 0,
+      batches_done: job.batches_done ?? 0,
     });
   } catch (err) {
     console.error("GET generate/job/[id]:", err);

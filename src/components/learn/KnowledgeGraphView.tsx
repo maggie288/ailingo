@@ -41,9 +41,14 @@ export function KnowledgeGraphView() {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/knowledge-graph")
+    setLoadError(null);
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    fetch("/api/knowledge-graph", { signal: controller.signal })
       .then((r) => r.json())
       .then((data) => {
         const rawNodes = data.nodes ?? [];
@@ -76,8 +81,19 @@ export function KnowledgeGraphView() {
         setNodes(rfNodes);
         setEdges(rfEdges);
       })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (err?.name === "AbortError") setLoadError("加载超时，请刷新重试");
+        else setLoadError("加载失败，请刷新重试");
+      })
+      .finally(() => {
+        clearTimeout(timeoutId);
+        setLoading(false);
+      });
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [setNodes, setEdges]);
 
   if (loading) {
@@ -88,10 +104,19 @@ export function KnowledgeGraphView() {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-muted text-center px-4">
+        <p>{loadError}</p>
+      </div>
+    );
+  }
+
   if (nodes.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full min-h-[300px] text-muted">
-        暂无知识节点
+      <div className="flex flex-col items-center justify-center h-full min-h-[300px] text-muted text-center px-4">
+        <p>暂无知识节点</p>
+        <p className="text-xs mt-2">若已部署，请在 Supabase 执行迁移与种子（含 knowledge_nodes），或从「学习」路径生成课时后刷新。</p>
       </div>
     );
   }
