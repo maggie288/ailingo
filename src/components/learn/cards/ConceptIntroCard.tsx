@@ -13,7 +13,7 @@ export function ConceptIntroCard({ card }: Props) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
     >
-      <p className="text-foreground text-base leading-relaxed">{card.content}</p>
+      <p className="text-foreground text-base leading-relaxed whitespace-pre-line">{card.content}</p>
       {card.analogy && (
         <p className="mt-3 text-sm text-muted italic border-l-2 border-knowledge pl-3">
           {card.analogy}

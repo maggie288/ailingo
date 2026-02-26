@@ -12,6 +12,11 @@ type LessonRow = {
   status: string;
   source_type: string | null;
   created_at: string;
+  phase_order: number | null;
+  phase_name: string | null;
+  knowledge_node_title: string | null;
+  category: string | null;
+  user_course_title: string | null;
 };
 
 type NodeRow = {
@@ -158,40 +163,57 @@ export default function AdminPage() {
             {lessons.map((l) => (
               <li
                 key={l.id}
-                className="flex flex-wrap items-center gap-2 p-3 rounded-card border border-border bg-card"
+                className="p-3 rounded-card border border-border bg-card space-y-1"
               >
-                <span className="font-medium text-foreground flex-1 min-w-0 truncate">
-                  {l.topic}
-                </span>
-                <span className="text-xs text-muted">{l.difficulty}</span>
-                <span
-                  className={`text-xs px-2 py-0.5 rounded ${
-                    l.status === "published"
-                      ? "bg-primary/20 text-primary"
-                      : "bg-muted text-muted"
-                  }`}
-                >
-                  {l.status}
-                </span>
-                <button
-                  type="button"
-                  disabled={toggling === l.id}
-                  onClick={() =>
-                    setStatus(l.id, l.status === "published" ? "draft" : "published")
-                  }
-                  className="text-xs font-medium text-primary hover:underline disabled:opacity-50"
-                >
-                  {toggling === l.id ? "…" : l.status === "published" ? "改为草稿" : "发布"}
-                </button>
-                <Link
-                  href={`/learn/ai/${l.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-muted hover:text-foreground"
-                  aria-label="打开课时"
-                >
-                  <ExternalLink className="w-4 h-4" />
-                </Link>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-foreground flex-1 min-w-0 truncate">
+                    {l.topic}
+                  </span>
+                  <span className="text-xs text-muted">{l.difficulty}</span>
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded shrink-0 ${
+                      l.status === "published"
+                        ? "bg-primary/20 text-primary"
+                        : "bg-muted text-muted"
+                    }`}
+                  >
+                    {l.status}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={toggling === l.id}
+                    onClick={() =>
+                      setStatus(l.id, l.status === "published" ? "draft" : "published")
+                    }
+                    className="text-xs font-medium text-primary hover:underline disabled:opacity-50 shrink-0"
+                  >
+                    {toggling === l.id ? "…" : l.status === "published" ? "改为草稿" : "发布"}
+                  </button>
+                  <Link
+                    href={`/learn/ai/${l.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted hover:text-foreground shrink-0"
+                    aria-label="打开课时"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </Link>
+                </div>
+                <div className="text-xs text-muted flex flex-wrap gap-x-3 gap-y-0.5">
+                  {l.phase_name != null && l.knowledge_node_title != null ? (
+                    <>
+                      <span>目录：阶段{l.phase_order} · {l.phase_name}</span>
+                      <span>知识点：{l.knowledge_node_title}</span>
+                      {l.category != null && (
+                        <span className="capitalize">{l.category}</span>
+                      )}
+                    </>
+                  ) : (
+                    <span>
+                      {l.user_course_title ? `用户生成 · ${l.user_course_title}` : "用户生成"}
+                    </span>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

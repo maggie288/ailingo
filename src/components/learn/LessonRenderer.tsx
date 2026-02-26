@@ -12,6 +12,33 @@ type Props = {
   onCardIncorrect?: () => void;
 };
 
+/** 合并连续的概念介绍卡为一张，避免重复「概念介绍」块 */
+function mergeConsecutiveConceptIntros(cards: LessonCard[]): LessonCard[] {
+  const out: LessonCard[] = [];
+  let introContents: string[] = [];
+  let introAnalogy: string | undefined;
+  const flushIntro = () => {
+    if (introContents.length === 0) return;
+    const content = introContents
+      .filter((c) => c.trim() && c.trim() !== "概念介绍")
+      .join("\n\n") || introContents[introContents.length - 1] || "概念介绍";
+    out.push({ type: "concept_intro", content, analogy: introAnalogy });
+    introContents = [];
+    introAnalogy = undefined;
+  };
+  for (const card of cards) {
+    if (card.type === "concept_intro") {
+      introContents.push((card as { content?: string }).content ?? "");
+      if ((card as { analogy?: string }).analogy) introAnalogy = (card as { analogy?: string }).analogy;
+    } else {
+      flushIntro();
+      out.push(card);
+    }
+  }
+  flushIntro();
+  return out;
+}
+
 function CardRenderer({
   card,
   onCorrect,
@@ -52,7 +79,8 @@ export function LessonRenderer({ lesson, onCardCorrect, onCardIncorrect }: Props
     ? lesson.learning_objectives
     : [];
   const prerequisites = Array.isArray(lesson.prerequisites) ? lesson.prerequisites : [];
-  const cards = Array.isArray(lesson.cards) ? lesson.cards : [];
+  const rawCards = Array.isArray(lesson.cards) ? lesson.cards : [];
+  const cards = mergeConsecutiveConceptIntros(rawCards as LessonCard[]);
   const topic = typeof lesson.topic === "string" ? lesson.topic : "本节课程";
   return (
     <div className="space-y-4">
