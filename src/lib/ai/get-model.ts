@@ -9,7 +9,8 @@ import { createMinimax, createMinimaxOpenAI } from "vercel-minimax-ai-provider";
 import type { LanguageModelV3 } from "@ai-sdk/provider";
 
 const MINIMAX_MAIN = "MiniMax-M2.5" as const;
-const MINIMAX_LIGHT = "MiniMax-M2.1-lightning" as const;
+/** 官方文档为 MiniMax-M2.1-highspeed；勿用 MiniMax-M2.1-lightning（coding plan 不支持） */
+const MINIMAX_LIGHT = "MiniMax-M2.1-highspeed" as const;
 
 function getMinimaxModel(modelId: string): LanguageModelV3 {
   const apiKey = process.env.MINIMAX_API_KEY;

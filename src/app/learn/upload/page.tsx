@@ -6,18 +6,48 @@ import { TopBar } from "@/components/layout/TopBar";
 import { TopBarStats } from "@/components/layout/TopBarStats";
 import { FileText } from "lucide-react";
 
+type IngestResult = { id: string; status: string; extracted_content?: string };
+type GenResult = { lesson_id: string; user_course_id: string; topic: string; status: string };
+
 export default function UploadMaterialPage() {
   const [title, setTitle] = useState("");
   const [paste, setPaste] = useState("");
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{ id: string; status: string; extracted_content?: string } | null>(null);
+  const [genLoading, setGenLoading] = useState(false);
+  const [result, setResult] = useState<IngestResult | null>(null);
+  const [genResult, setGenResult] = useState<GenResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const runGenerateFromMaterial = async (materialId: string) => {
+    setGenLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/generate/from-material", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ material_id: materialId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "生成失败");
+      setGenResult({
+        lesson_id: data.lesson_id,
+        user_course_id: data.user_course_id,
+        topic: data.topic ?? "课程",
+        status: data.status ?? "published",
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "生成失败");
+    } finally {
+      setGenLoading(false);
+    }
+  };
 
   const handleSubmitPaste = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setResult(null);
+    setGenResult(null);
     const text = paste.trim();
     if (!text) return;
     setLoading(true);
@@ -29,9 +59,13 @@ export default function UploadMaterialPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "上传失败");
-      setResult({ id: data.id, status: data.status, extracted_content: data.extracted_content });
+      const ingest: IngestResult = { id: data.id, status: data.status, extracted_content: data.extracted_content };
+      setResult(ingest);
       setPaste("");
       setTitle("");
+      if (data.status === "extracted" && data.id && (data.extracted_content?.length ?? 0) >= 100) {
+        await runGenerateFromMaterial(data.id);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "上传失败");
     } finally {
@@ -44,6 +78,7 @@ export default function UploadMaterialPage() {
     if (!file) return;
     setError(null);
     setResult(null);
+    setGenResult(null);
     setLoading(true);
     try {
       const form = new FormData();
@@ -55,14 +90,24 @@ export default function UploadMaterialPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "上传失败");
-      setResult({ id: data.id, status: data.status, extracted_content: data.extracted_content });
+      const ingest: IngestResult = { id: data.id, status: data.status, extracted_content: data.extracted_content };
+      setResult(ingest);
       setTitle("");
       if (fileRef.current) fileRef.current.value = "";
+      if (data.status === "extracted" && data.id && (data.extracted_content?.length ?? 0) >= 100) {
+        await runGenerateFromMaterial(data.id);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "上传失败");
     } finally {
       setLoading(false);
     }
+  };
+
+  const resetAndContinue = () => {
+    setResult(null);
+    setGenResult(null);
+    setError(null);
   };
 
   return (
@@ -78,27 +123,50 @@ export default function UploadMaterialPage() {
       />
       <main className="p-4 pb-24">
         <p className="text-muted text-sm mb-4">
-          粘贴文本或上传 .md / .txt / .pdf / 图片（PNG、JPG、WebP），解析后可用来生成课程。
+          粘贴文本或上传 .md / .txt / .pdf / 图片（PNG、JPG、WebP），解析后将自动在本页生成课程，无需跳转。
         </p>
 
         {result ? (
-          <div className="rounded-card border border-border bg-card p-4 mb-4">
-            <p className="text-primary font-medium mb-1">已入库</p>
+          <div className="rounded-card border border-border bg-card p-4 mb-4 space-y-3">
+            <p className="text-primary font-medium">已解析</p>
             <p className="text-sm text-muted">状态：{result.status}</p>
             {result.status === "extracted" && result.extracted_content && (
-              <p className="text-xs text-muted mt-2 line-clamp-2">{result.extracted_content.slice(0, 100)}…</p>
+              <p className="text-xs text-muted line-clamp-2">{result.extracted_content.slice(0, 120)}…</p>
             )}
-            <div className="mt-3 flex gap-2">
-              <Link
-                href="/learn/generate"
-                className="text-sm text-primary font-medium"
-              >
-                去生成课程 →
-              </Link>
+            {genLoading && (
+              <p className="text-sm text-muted">正在生成课程，约 30～60 秒…</p>
+            )}
+            {genResult && !genLoading && (
+              <div className="rounded border border-primary/30 bg-primary/5 p-3">
+                <p className="text-primary font-medium">生成完成</p>
+                <p className="text-sm text-foreground mt-0.5">{genResult.topic}</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Link
+                    href={`/learn/ai/${genResult.lesson_id}`}
+                    className="inline-block px-4 py-2 rounded-button bg-primary text-white text-sm font-bold"
+                  >
+                    进入本节
+                  </Link>
+                  <Link
+                    href={`/learn/my/${genResult.user_course_id}`}
+                    className="inline-block px-4 py-2 rounded-button border border-border text-foreground text-sm font-medium"
+                  >
+                    我的课程
+                  </Link>
+                </div>
+              </div>
+            )}
+            {result.status === "extracted" && !genLoading && !genResult && (result.extracted_content?.length ?? 0) < 100 && (
+              <p className="text-sm text-muted">内容过短（需至少 100 字），无法自动生成课程。</p>
+            )}
+            {result.status === "failed" && (
+              <p className="text-sm text-muted">解析失败，请换一份资料或继续上传。</p>
+            )}
+            <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => setResult(null)}
-                className="text-sm text-muted"
+                onClick={resetAndContinue}
+                className="text-sm text-muted hover:text-foreground"
               >
                 继续上传
               </button>
