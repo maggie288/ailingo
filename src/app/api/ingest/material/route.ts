@@ -99,6 +99,7 @@ export async function POST(request: Request) {
           const text = await file.text();
           extractedContent = text.slice(0, MAX_EXTRACT_LENGTH);
           status = "extracted";
+        } else {
         let failedReason: string | undefined;
         if (type === "application/pdf" || name.toLowerCase().endsWith(".pdf")) {
           status = "processing";
@@ -145,9 +146,10 @@ export async function POST(request: Request) {
         return NextResponse.json({
           id: row.id,
           status: row.status,
-          extracted_content: status === "extracted" ? row.extracted_content : undefined,
+          extracted_content: row.status === "extracted" ? row.extracted_content : undefined,
           failed_reason: failedReason,
         });
+        }
       }
     }
 

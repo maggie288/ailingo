@@ -65,7 +65,7 @@ export async function POST(
             updated_at: new Date().toISOString(),
           })
           .eq("id", jobId);
-      } catch (_) {
+      } catch {
         // ignore
       }
       return NextResponse.json({

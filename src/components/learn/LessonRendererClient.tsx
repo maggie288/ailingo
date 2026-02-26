@@ -34,7 +34,7 @@ export function LessonRendererClient({ lesson, nextLessonId }: Props) {
         }),
       })
         .then((r) => r.json())
-        .then((_data) => {
+        .then(() => {
           if (nextLessonId) {
             router.push(`/learn/ai/${nextLessonId}`);
           } else {
