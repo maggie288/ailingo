@@ -5,10 +5,21 @@ import { getPhaseName } from "@/lib/learning-path/phases";
 
 type Props = { params: Promise<{ phaseOrder: string }> };
 
+function clampPhaseOrder(n: number): number {
+  if (typeof n !== "number" || Number.isNaN(n)) return 1;
+  return Math.max(1, Math.min(10, Math.floor(n)));
+}
+
 export default async function PhasePage({ params }: Props) {
-  const { phaseOrder } = await params;
-  const order = parseInt(phaseOrder, 10);
-  const phaseName = getPhaseName(isNaN(order) ? 1 : Math.max(1, Math.min(10, order)));
+  let phaseOrderRaw: string;
+  try {
+    const p = await params;
+    phaseOrderRaw = typeof p?.phaseOrder === "string" ? p.phaseOrder : "1";
+  } catch {
+    phaseOrderRaw = "1";
+  }
+  const order = clampPhaseOrder(parseInt(phaseOrderRaw, 10));
+  const phaseName = getPhaseName(order);
 
   return (
     <>
@@ -21,7 +32,7 @@ export default async function PhasePage({ params }: Props) {
         }
       />
       <main className="p-4 pb-8">
-        <PhaseLevelsClient phaseOrder={isNaN(order) ? 1 : Math.max(1, Math.min(10, order))} />
+        <PhaseLevelsClient phaseOrder={order} />
       </main>
     </>
   );
