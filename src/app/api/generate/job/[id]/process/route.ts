@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { runGenerationJob } from "@/lib/generate/run-job";
 
 export const dynamic = "force-dynamic";
@@ -10,8 +10,10 @@ export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let jobId: string | null = null;
   try {
-    const { id: jobId } = await params;
+    const { id } = await params;
+    jobId = id;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
@@ -39,7 +41,7 @@ export async function POST(
     await runGenerationJob(jobId);
     const { data: updated } = await supabase
       .from("generation_jobs")
-      .select("status, batches_done, batches_total")
+      .select("status, batches_done, batches_total, error")
       .eq("id", jobId)
       .single();
     return NextResponse.json({
@@ -47,12 +49,33 @@ export async function POST(
       jobId,
       batches_done: updated?.batches_done ?? 0,
       batches_total: updated?.batches_total ?? 0,
+      error: updated?.error ?? undefined,
     });
   } catch (err) {
+    const message = err instanceof Error ? err.message : "执行失败";
     console.error("POST generate/job/[id]/process:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "执行失败" },
-      { status: 500 }
-    );
+    if (jobId) {
+      try {
+        const admin = createServiceRoleClient();
+        await admin
+          .from("generation_jobs")
+          .update({
+            status: "failed",
+            error: message,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", jobId);
+      } catch (_) {
+        // ignore
+      }
+      return NextResponse.json({
+        status: "failed",
+        jobId,
+        error: message,
+        batches_done: 0,
+        batches_total: 0,
+      });
+    }
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

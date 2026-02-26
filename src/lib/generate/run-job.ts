@@ -124,7 +124,7 @@ export async function runGenerationJob(jobId: string): Promise<void> {
       await runFirstBatchNoCourse(admin, jobId, userId, cachedChunks, existingResult, type, input);
     } catch (err) {
       await markJobFailed(admin, jobId, err);
-      throw err;
+      return;
     }
     return;
   }
@@ -137,16 +137,8 @@ export async function runGenerationJob(jobId: string): Promise<void> {
   try {
     await runPrepareOnly(admin, jobId, userId, type, input);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Course generation failed";
-    await admin
-      .from("generation_jobs")
-      .update({
-        status: "failed",
-        error: message,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", jobId);
-    throw err;
+    await markJobFailed(admin, jobId, err);
+    return;
   }
 }
 
