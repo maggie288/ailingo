@@ -100,55 +100,55 @@ export async function POST(request: Request) {
           extractedContent = text.slice(0, MAX_EXTRACT_LENGTH);
           status = "extracted";
         } else {
-        let failedReason: string | undefined;
-        if (type === "application/pdf" || name.toLowerCase().endsWith(".pdf")) {
-          status = "processing";
-          extractedContent = await extractPdfText(file);
-          if (!extractedContent) {
-            status = "failed";
-            failedReason = "PDF 解析失败，请换一个文件或直接粘贴文本内容。";
-          }
-        } else if (IMAGE_TYPES.includes(type) || /\.(png|jpe?g|webp)$/i.test(name)) {
-          status = "processing";
-          if (!process.env.OPENAI_API_KEY?.trim()) {
-            status = "failed";
-            failedReason = "图片解析需要配置 OPENAI_API_KEY（当前仅支持 OpenAI 视觉模型），或请改为粘贴文字/上传 PDF、TXT、MD。";
-          } else {
-            extractedContent = await extractImageText(file);
+          let failedReason: string | undefined;
+          if (type === "application/pdf" || name.toLowerCase().endsWith(".pdf")) {
+            status = "processing";
+            extractedContent = await extractPdfText(file);
             if (!extractedContent) {
               status = "failed";
-              failedReason = "图片内容提取失败，请换一张图或改为粘贴文字。";
+              failedReason = "PDF 解析失败，请换一个文件或直接粘贴文本内容。";
             }
+          } else if (IMAGE_TYPES.includes(type) || /\.(png|jpe?g|webp)$/i.test(name)) {
+            status = "processing";
+            if (!process.env.OPENAI_API_KEY?.trim()) {
+              status = "failed";
+              failedReason = "图片解析需要配置 OPENAI_API_KEY（当前仅支持 OpenAI 视觉模型），或请改为粘贴文字/上传 PDF、TXT、MD。";
+            } else {
+              extractedContent = await extractImageText(file);
+              if (!extractedContent) {
+                status = "failed";
+                failedReason = "图片内容提取失败，请换一张图或改为粘贴文字。";
+              }
+            }
+          } else {
+            status = "pending";
+            extractedContent = null;
           }
-        } else {
-          status = "pending";
-          extractedContent = null;
-        }
 
-        const { data: row, error } = await supabase
-          .from("materials")
-          .insert({
-            user_id: user.id,
-            title: title ?? name,
-            file_name: name,
-            file_type: type,
-            file_size: file.size,
-            status,
-            extracted_content: extractedContent,
-            updated_at: new Date().toISOString(),
-          })
-          .select("id, status, extracted_content")
-          .single();
+          const { data: row, error } = await supabase
+            .from("materials")
+            .insert({
+              user_id: user.id,
+              title: title ?? name,
+              file_name: name,
+              file_type: type,
+              file_size: file.size,
+              status,
+              extracted_content: extractedContent,
+              updated_at: new Date().toISOString(),
+            })
+            .select("id, status, extracted_content")
+            .single();
 
-        if (error) {
-          return NextResponse.json({ error: error.message }, { status: 500 });
-        }
-        return NextResponse.json({
-          id: row.id,
-          status: row.status,
-          extracted_content: row.status === "extracted" ? row.extracted_content : undefined,
-          failed_reason: failedReason,
-        });
+          if (error) {
+            return NextResponse.json({ error: error.message }, { status: 500 });
+          }
+          return NextResponse.json({
+            id: row.id,
+            status: row.status,
+            extracted_content: row.status === "extracted" ? row.extracted_content : undefined,
+            failed_reason: failedReason,
+          });
         }
       }
     }
