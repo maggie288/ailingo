@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { generateLessonFromContent } from "@/lib/ai/generate-lesson";
 import { createClient } from "@/lib/supabase/server";
-import { getSuggestedKnowledgeNodeId } from "@/lib/learning-path/suggest-node";
+import { createServiceRoleClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -24,6 +24,12 @@ async function fetchTextFromUrl(url: string): Promise<string> {
 
 export async function POST(request: Request) {
   try {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "请先登录" }, { status: 401 });
+    }
+
     const body = await request.json();
     const url = (body.url ?? "").toString().trim();
     if (!url || !url.startsWith("http")) {
@@ -56,46 +62,49 @@ export async function POST(request: Request) {
       url,
     });
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    let lessonId: string | null = null;
+    const admin = createServiceRoleClient();
+    const courseTitle = (generated.topic || "URL 生成").slice(0, 255);
+    const { data: userCourse, error: courseError } = await admin
+      .from("user_courses")
+      .insert({ user_id: user.id, title: courseTitle, source_type: "url" })
+      .select("id")
+      .single();
 
-    if (supabaseUrl && supabaseKey) {
-      const supabase = await createClient();
-      const knowledge_node_id = await getSuggestedKnowledgeNodeId(
-        supabase,
-        generated.topic,
-        generated.difficulty
-      );
-      const { data, error } = await supabase
-        .from("generated_lessons")
-        .insert({
-          topic: generated.topic,
-          difficulty: generated.difficulty,
-          prerequisites: generated.prerequisites,
-          learning_objectives: generated.learning_objectives ?? [],
-          pass_threshold: generated.pass_threshold ?? 0.8,
-          cards: generated.cards as unknown as Record<string, unknown>[],
-          source_type: "url",
-          source_url: url,
-          status: "draft",
-          knowledge_node_id: knowledge_node_id ?? undefined,
-        })
-        .select("id")
-        .single();
-      if (!error && data) lessonId = data.id;
+    if (courseError || !userCourse) {
+      return NextResponse.json({ error: "Failed to create user course" }, { status: 500 });
     }
 
-    const lessonIdForJson = lessonId ?? crypto.randomUUID();
+    const { data: lesson, error: lessonError } = await admin
+      .from("generated_lessons")
+      .insert({
+        topic: generated.topic,
+        difficulty: generated.difficulty,
+        prerequisites: generated.prerequisites,
+        learning_objectives: generated.learning_objectives ?? [],
+        pass_threshold: generated.pass_threshold ?? 0.8,
+        cards: generated.cards as unknown as Record<string, unknown>[],
+        source_type: "url",
+        source_url: url,
+        status: "published",
+        user_course_id: userCourse.id,
+      })
+      .select("id")
+      .single();
+
+    if (lessonError || !lesson) {
+      return NextResponse.json({ error: "Failed to save lesson" }, { status: 500 });
+    }
+
     return NextResponse.json({
-      lesson_id: lessonIdForJson,
+      lesson_id: lesson.id,
+      user_course_id: userCourse.id,
       topic: generated.topic,
       difficulty: generated.difficulty,
       prerequisites: generated.prerequisites,
       learning_objectives: generated.learning_objectives ?? [],
       pass_threshold: generated.pass_threshold ?? 0.8,
       cards: generated.cards,
-      saved: !!lessonId,
+      saved: true,
     });
   } catch (err) {
     console.error("generate/from-url:", err);

@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { TopBar } from "@/components/layout/TopBar";
 import { LearningPathClient } from "@/components/learn/LearningPathClient";
 import { MOCK_COURSES } from "@/lib/data/mock";
@@ -6,12 +6,19 @@ import { MOCK_UNITS } from "@/lib/data/mock";
 import { MOCK_LESSONS } from "@/lib/data/mock";
 import type { Course, Unit, Lesson } from "@/types/database";
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 type Props = { params: Promise<{ courseId: string }> };
 
 export default async function CourseDetailPage({ params }: Props) {
   const { courseId } = await params;
   const course = MOCK_COURSES.find((c) => c.id === courseId) as Course | undefined;
-  if (!course) notFound();
+  if (!course) {
+    if (UUID_REGEX.test(courseId)) {
+      redirect(`/learn/my/${courseId}`);
+    }
+    notFound();
+  }
 
   const units = (MOCK_UNITS[courseId] ?? [])
     .sort((a, b) => a.order_index - b.order_index) as Unit[];

@@ -8,7 +8,19 @@ export async function GET() {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({
+        total_lessons_completed: 0,
+        total_score: 0,
+        average_score: 0,
+        total_time_seconds: 0,
+        current_streak: 0,
+        longest_streak: 0,
+        total_xp: 0,
+        level: 1,
+        hearts: 5,
+        hearts_max: 5,
+        coins: 0,
+      });
     }
 
     const [progressRes, streakRes] = await Promise.all([

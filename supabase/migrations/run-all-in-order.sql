@@ -275,3 +275,19 @@ ALTER TABLE public.generated_lessons
   ADD COLUMN IF NOT EXISTS pass_threshold NUMERIC(3,2) DEFAULT 0.8;
 COMMENT ON COLUMN public.generated_lessons.learning_objectives IS '1-3条本节学习目标，可被练习检验';
 COMMENT ON COLUMN public.generated_lessons.pass_threshold IS '通过标准，0-1，默认0.8即80%正确率';
+
+-- ---------- 12. 20250227000001_user_courses.sql ----------
+CREATE TABLE IF NOT EXISTS public.user_courses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  source_type VARCHAR(50) NOT NULL CHECK (source_type IN ('material', 'url', 'arxiv', 'topic')),
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_user_courses_user ON public.user_courses(user_id);
+ALTER TABLE public.user_courses ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can read own user_courses" ON public.user_courses FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own user_courses" ON public.user_courses FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can delete own user_courses" ON public.user_courses FOR DELETE USING (auth.uid() = user_id);
+ALTER TABLE public.generated_lessons ADD COLUMN IF NOT EXISTS user_course_id UUID REFERENCES public.user_courses(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_generated_lessons_user_course ON public.generated_lessons(user_course_id);

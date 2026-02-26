@@ -15,6 +15,7 @@ export type PathSlot = {
     title: string;
     description: string | null;
     category: string | null;
+    order_index: number;
   };
   lessons: Array<{
     id: string;
@@ -63,7 +64,8 @@ export async function GET() {
       supabase
         .from("generated_lessons")
         .select("id, topic, difficulty, knowledge_node_id")
-        .eq("status", "published"),
+        .eq("status", "published")
+        .is("user_course_id", null),
       user
         ? supabase
             .from("generated_lesson_progress")
@@ -123,6 +125,7 @@ export async function GET() {
           title: node.title,
           description: node.description,
           category: node.category,
+          order_index: node.order_index ?? 0,
         },
         lessons: [] as PathSlot["lessons"],
         locked: locked || undefined,

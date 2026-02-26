@@ -1,6 +1,7 @@
 import { TopBar } from "@/components/layout/TopBar";
 import { TopBarStats } from "@/components/layout/TopBarStats";
 import { PathPageClient } from "@/components/learn/PathPageClient";
+import { MyCoursesClient } from "@/components/learn/MyCoursesClient";
 import { GuestLearnTip } from "@/components/learn/GuestLearnTip";
 import { StreakReminder } from "@/components/gamification/StreakReminder";
 
@@ -33,8 +34,14 @@ export default function LearnPage() {
             论文 / URL 生成
           </a>
         </div>
-        <h2 className="text-base font-bold text-foreground mb-2">0→1 学习路径目录（AI 生成课程）</h2>
+
+        <h2 className="text-base font-bold text-foreground mb-2">系统课程：0→1 学习路径</h2>
+        <p className="text-sm text-muted mb-3">默认课程，初始化自动生成，按阶段闯关。</p>
         <PathPageClient />
+
+        <h2 className="text-base font-bold text-foreground mt-8 mb-2">我的生成课程</h2>
+        <p className="text-sm text-muted mb-3">注册后上传资料或论文/URL 生成的课程，与系统路径并列、单独展示与存储。</p>
+        <MyCoursesClient />
       </main>
     </>
   );

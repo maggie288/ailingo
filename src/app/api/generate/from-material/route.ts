@@ -57,33 +57,19 @@ export async function POST(request: Request) {
     });
 
     const admin = createServiceRoleClient();
-    const { data: maxRow } = await admin
-      .from("knowledge_nodes")
-      .select("order_index")
-      .order("order_index", { ascending: false })
-      .limit(1)
-      .single();
-    const nextOrder = (maxRow?.order_index ?? -1) + 1;
-    const difficultyLevel = generated.difficulty === "advanced" ? 8 : generated.difficulty === "intermediate" ? 5 : 2;
-
-    const { data: newNode, error: nodeError } = await admin
-      .from("knowledge_nodes")
+    const courseTitle = (generated.topic || material.title || "上传资料").slice(0, 255);
+    const { data: userCourse, error: courseError } = await admin
+      .from("user_courses")
       .insert({
-        title: generated.topic || (material.title ?? "上传资料"),
-        description: generated.prerequisites?.length
-          ? `前置：${generated.prerequisites.slice(0, 3).join("、")}`
-          : "由上传资料 AI 生成的课时",
-        difficulty_level: difficultyLevel,
-        order_index: nextOrder,
-        category: "theory",
-        concept_name: (generated.topic || material.title) ?? undefined,
-        updated_at: new Date().toISOString(),
+        user_id: user.id,
+        title: courseTitle,
+        source_type: "material",
       })
       .select("id")
       .single();
 
-    if (nodeError || !newNode) {
-      return NextResponse.json({ error: "Failed to create knowledge node" }, { status: 500 });
+    if (courseError || !userCourse) {
+      return NextResponse.json({ error: "Failed to create user course" }, { status: 500 });
     }
 
     const { data: lesson, error: lessonError } = await admin
@@ -98,8 +84,8 @@ export async function POST(request: Request) {
         source_type: "material",
         source_id: material.id,
         source_url: null,
-        status: "draft",
-        knowledge_node_id: newNode.id,
+        status: "published",
+        user_course_id: userCourse.id,
       })
       .select("id")
       .single();
@@ -110,9 +96,9 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       lesson_id: lesson.id,
-      knowledge_node_id: newNode.id,
+      user_course_id: userCourse.id,
       topic: generated.topic,
-      status: "draft",
+      status: "published",
     });
   } catch (err) {
     console.error("POST /api/generate/from-material:", err);

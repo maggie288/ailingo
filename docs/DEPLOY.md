@@ -78,6 +78,8 @@ COMMENT ON COLUMN public.generated_lessons.pass_threshold IS '通过标准，0-1
 - 已有 200 课时会多出 `learning_objectives`（空数组 `[]`）和 `pass_threshold`（0.8）。接口和前端会对旧数据做兼容：目标展示为「理解并掌握：{主题}」，阈值按 0.8 计算通过。
 - 之后新生成的课时会由 AI 正常写入这两列。
 
+**用户生成课程（可选）：** 若需支持「上传资料/论文·URL 生成」的课程单独成「我的生成课程」并与系统 0→1 路径并列，需执行 `supabase/migrations/20250227000001_user_courses.sql`（创建 `user_courses` 表并为 `generated_lessons` 增加 `user_course_id` 列）。详见该迁移文件。
+
 **前置锁定说明：** 路径上的「先完成：X」依赖 `knowledge_nodes.prerequisites`（节点 ID 数组）。若当前种子里 `prerequisites` 多为空，可二选一：
 - **方式 A（推荐）**：在 SQL Editor 执行下面「线性前置」脚本，一次性为所有节点按顺序设置「上一节为前置」：
 - **方式 B**：在管理后台 **/admin → 知识节点 → 编辑** 中，为每个节点手动添加「前置节点」。
