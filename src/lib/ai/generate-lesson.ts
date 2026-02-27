@@ -23,15 +23,38 @@ const SYSTEM_PROMPT = `你是 AI 大模型学习平台的课程设计专家。�
 
 pass_threshold 默认 0.8。只输出一个 JSON 对象，严格符合给定 schema，不要 markdown 或额外说明。`;
 
-/** 从模型返回的文本中提取 JSON 对象（兼容 ```json ... ``` 或裸 {...}） */
+/** 从模型返回的文本中提取 JSON 对象（兼容 ```json ... ``` 或裸 {...}，以及被截断的 JSON） */
 function extractJsonFromText(text: string): string {
   const trimmed = text.trim();
   const codeBlock = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (codeBlock?.[1]) return codeBlock[1].trim();
-  const first = trimmed.indexOf("{");
-  const last = trimmed.lastIndexOf("}");
-  if (first !== -1 && last > first) return trimmed.slice(first, last + 1);
-  return trimmed;
+  let jsonStr = codeBlock?.[1]?.trim() ?? trimmed;
+  const first = jsonStr.indexOf("{");
+  if (first === -1) return jsonStr;
+  jsonStr = jsonStr.slice(first);
+  const last = jsonStr.lastIndexOf("}");
+  if (last > first) return jsonStr.slice(0, last + 1);
+  // 可能被截断：尝试补全括号后解析
+  let brace = 0;
+  let bracket = 0;
+  let inString = false;
+  let escape = false;
+  let quote = "";
+  for (let i = 0; i < jsonStr.length; i++) {
+    const c = jsonStr[i];
+    if (escape) { escape = false; continue; }
+    if (inString) {
+      if (c === "\\") escape = true;
+      else if (c === quote) inString = false;
+      continue;
+    }
+    if (c === '"' || c === "'") { inString = true; quote = c; continue; }
+    if (c === "{") brace++;
+    else if (c === "}") brace--;
+    else if (c === "[") bracket++;
+    else if (c === "]") bracket--;
+  }
+  const suffix = "]\n".repeat(Math.max(0, bracket)) + "}".repeat(Math.max(0, brace));
+  return jsonStr + suffix;
 }
 
 /** 用宽松 schema 解析后补齐为符合严格 schema 的结构（如至少 2 张卡） */

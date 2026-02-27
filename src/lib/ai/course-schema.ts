@@ -132,12 +132,34 @@ const relaxedLessonCardSchema = anyCard.transform((o) => {
   }
   return { type: "concept_intro" as const, content: o.content ?? String(o.title ?? o.question ?? "概念"), analogy: o.analogy };
 });
-export const generatedLessonOutputSchemaRelaxed = z.object({
-  topic: z.string().default(""),
-  difficulty: coercedDifficulty,
-  prerequisites: z.array(z.string()).default([]),
-  learning_objectives: z.array(z.string()).optional().default([]),
+/** 顶层兼容：模型可能返回 title/description 而非 topic，统一映射为 topic */
+const relaxedRoot = z.object({
+  topic: z.string().optional(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  difficulty: coercedDifficulty.optional(),
+  prerequisites: z.array(z.string()).optional(),
+  learning_objectives: z.array(z.string()).optional(),
   pass_threshold: z.union([z.number(), z.string()]).optional(),
-  cards: z.array(relaxedLessonCardSchema).default([]),
-});
+  cards: z.array(relaxedLessonCardSchema).optional(),
+}).transform((o) => ({
+  topic: (o.topic ?? o.title ?? o.description ?? "").trim() || "课程",
+  difficulty: o.difficulty ?? "beginner",
+  prerequisites: o.prerequisites ?? [],
+  learning_objectives: o.learning_objectives ?? [],
+  pass_threshold: o.pass_threshold,
+  cards: o.cards ?? [],
+}));
+
+export const generatedLessonOutputSchemaRelaxed = z.union([
+  z.object({
+    topic: z.string().default(""),
+    difficulty: coercedDifficulty,
+    prerequisites: z.array(z.string()).default([]),
+    learning_objectives: z.array(z.string()).optional().default([]),
+    pass_threshold: z.union([z.number(), z.string()]).optional(),
+    cards: z.array(relaxedLessonCardSchema).default([]),
+  }),
+  relaxedRoot,
+]);
 export type GeneratedLessonOutputRelaxed = z.infer<typeof generatedLessonOutputSchemaRelaxed>;

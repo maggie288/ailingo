@@ -28,8 +28,12 @@ export default function UploadMaterialPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ material_id: materialId }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "生成失败");
+      if (res.status === 504) {
+        setError("生成超时（服务器限时约 1 分钟），请缩短资料后重试");
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string })?.error ?? "生成失败");
       setGenResult({
         lesson_id: data.lesson_id,
         user_course_id: data.user_course_id,
@@ -57,8 +61,12 @@ export default function UploadMaterialPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: title.trim() || undefined, text }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "上传失败");
+      if (res.status === 504) {
+        setError("处理超时，请缩短内容后重试");
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string })?.error ?? "上传失败");
       const ingest: IngestResult = { id: data.id, status: data.status, extracted_content: data.extracted_content, failed_reason: data.failed_reason };
       setResult(ingest);
       setPaste("");
@@ -88,8 +96,12 @@ export default function UploadMaterialPage() {
         method: "POST",
         body: form,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "上传失败");
+      if (res.status === 504) {
+        setError("处理超时，请换较小文件或缩短内容后重试");
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error((data as { error?: string })?.error ?? "上传失败");
       const ingest: IngestResult = { id: data.id, status: data.status, extracted_content: data.extracted_content, failed_reason: data.failed_reason };
       setResult(ingest);
       setTitle("");
